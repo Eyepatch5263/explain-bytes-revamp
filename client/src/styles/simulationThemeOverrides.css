@@ -1,0 +1,74 @@
+.flashdocs-simulation-shell {
+  --sim-paper: #f7f3e9;
+  --sim-paper-deep: #e9e6dc;
+  --sim-ink: #13221e;
+  --sim-muted: #66736d;
+  --sim-line: rgba(19, 34, 30, .22);
+  --sim-coral: #e66b5b;
+  --sim-coral-soft: rgba(230, 107, 91, .14);
+  --sim-cobalt: #4072f6;
+  --sim-cobalt-soft: rgba(64, 114, 246, .12);
+  color: var(--sim-ink);
+  font-family: var(--font-sans);
+}
+
+.flashdocs-simulation-shell > * { margin-block: 0 !important; }
+.flashdocs-simulation-shell :is(button, input, select) { border-radius: 0 !important; font-family: var(--font-mono) !important; letter-spacing: .04em; }
+.flashdocs-simulation-shell button { border-color: var(--sim-line) !important; box-shadow: none !important; }
+.flashdocs-simulation-shell button:hover:not(:disabled) { background: var(--sim-coral) !important; color: #171211 !important; border-color: var(--sim-coral) !important; }
+.flashdocs-simulation-shell button:focus-visible { outline: 2px solid var(--sim-cobalt); outline-offset: 2px; }
+.flashdocs-simulation-shell [class*="rounded"] { border-radius: 0 !important; }
+.flashdocs-simulation-shell [class*="shadow"] { box-shadow: none !important; }
+.flashdocs-simulation-shell [class~="bg-white"],
+.flashdocs-simulation-shell [class~="bg-zinc-50"] { background-color: var(--sim-paper) !important; }
+.flashdocs-simulation-shell [class~="bg-zinc-100"] { background-color: var(--sim-paper-deep) !important; }
+.flashdocs-simulation-shell [class~="bg-zinc-950"] { background-color: var(--sim-ink) !important; }
+.flashdocs-simulation-shell [class*="border-zinc"] { border-color: var(--sim-line) !important; }
+.flashdocs-simulation-shell [class*="text-zinc"] { color: var(--sim-ink) !important; }
+.flashdocs-simulation-shell [class*="text-purple"],
+.flashdocs-simulation-shell [class*="text-violet"] { color: var(--sim-cobalt) !important; }
+.flashdocs-simulation-shell [class*="bg-purple"],
+.flashdocs-simulation-shell [class*="bg-violet"] { background-color: var(--sim-cobalt-soft) !important; }
+.flashdocs-simulation-shell [class*="border-purple"],
+.flashdocs-simulation-shell [class*="border-violet"] { border-color: rgba(64, 114, 246, .45) !important; }
+.flashdocs-simulation-shell [class*="bg-red"],
+.flashdocs-simulation-shell [class*="bg-amber"],
+.flashdocs-simulation-shell [class*="bg-emerald"] { background-color: var(--sim-coral-soft) !important; }
+.flashdocs-simulation-shell [class*="text-red"],
+.flashdocs-simulation-shell [class*="text-amber"],
+.flashdocs-simulation-shell [class*="text-emerald"] { color: #bd5145 !important; }
+.flashdocs-simulation-shell [class*="border-red"],
+.flashdocs-simulation-shell [class*="border-amber"],
+.flashdocs-simulation-shell [class*="border-emerald"] { border-color: rgba(230, 107, 91, .45) !important; }
+.flashdocs-simulation-shell [class*="bg-[linear-gradient"] { opacity: .46; }
+.flashdocs-simulation-shell [class*="font-mono"] { font-family: var(--font-mono) !important; }
+.flashdocs-simulation-shell :is(h2, h3, h4) { font-family: var(--font-display) !important; font-weight: 400 !important; letter-spacing: -.025em !important; }
+.flashdocs-simulation-shell svg { color: currentColor; }
+.flashdocs-simulation-shell [class~="bg-zinc-950"][class*="text-zinc-50"] { color: var(--sim-paper) !important; }
+
+.dark .flashdocs-simulation-shell {
+  --sim-paper: #16231f;
+  --sim-paper-deep: #22312b;
+  --sim-ink: #f4efe7;
+  --sim-muted: #b9c0bb;
+  --sim-line: rgba(244, 239, 231, .2);
+  --sim-coral-soft: rgba(230, 107, 91, .2);
+  --sim-cobalt-soft: rgba(64, 114, 246, .22);
+}
+.dark .flashdocs-simulation-shell [class~="bg-zinc-950"],
+.dark .flashdocs-simulation-shell [class*="dark:bg-zinc-950"] { background-color: #101714 !important; }
+.dark .flashdocs-simulation-shell [class*="text-zinc"] { color: var(--sim-ink) !important; }
+.dark .flashdocs-simulation-shell [class*="bg-white"] { background-color: var(--sim-paper) !important; }
+.dark .flashdocs-simulation-shell button:hover:not(:disabled) { color: #171211 !important; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .flashdocs-simulation-shell button { transition: background-color .18s var(--ease-out), color .18s var(--ease-out), border-color .18s var(--ease-out), transform .18s var(--ease-out) !important; }
+  .flashdocs-simulation-shell button:hover:not(:disabled) { transform: translateY(-1px); }
+}
+
+@media (max-width: 760px) {
+  .flashdocs-simulation-shell > * { padding: 1rem !important; }
+  .flashdocs-simulation-shell [class*="h-[600px]"] { height: 470px !important; }
+  .flashdocs-simulation-shell [class*="flex"][class*="bg-zinc-100"],
+  .flashdocs-simulation-shell [class*="flex"][class*="bg-zinc-950"] { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+}

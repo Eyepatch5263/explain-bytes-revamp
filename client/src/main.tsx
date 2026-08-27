@@ -8,6 +8,7 @@ import App from "./App";
 import { startLogin } from "./const";
 import "./index.css";
 import "./styles/wideReaderOverrides.css";
+import "./styles/simulationThemeOverrides.css";
 
 const queryClient = new QueryClient();
 

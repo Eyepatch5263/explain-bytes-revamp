@@ -70,3 +70,9 @@
 # Full-Width Desktop Verification
 
 - [x] Confirm at 1600px desktop width that the article heading, prose, tables, diagrams, and simulations span the full available middle pane between the navigation rails.
+
+# Unified System Design Simulations
+
+- [x] Audit the DNS, database, and load-balancing simulation visuals and controls for design-system mismatches.
+- [x] Add a shared coral-aware Flash Docs simulation shell and theme-consistent controls.
+- [x] Verify all simulation routes retain their interactions and match the reader at desktop and mobile sizes.
