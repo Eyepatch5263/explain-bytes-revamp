@@ -3,3 +3,9 @@
 - [x] Replace the bright lime with a deep coral accent in shared color tokens and homepage elements.
 - [x] Rebalance accent contrast for dark panels, interactive controls, and focus states.
 - [x] Verify the coral revision at desktop and mobile breakpoints.
+
+# Coral Illustration and Hover Revision
+
+- [x] Regenerate the primary learning illustrations using the coral accent system.
+- [x] Update illustration references in the homepage.
+- [x] Add restrained hover motion to active learning cards and verify the responsive presentation.

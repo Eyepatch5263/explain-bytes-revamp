@@ -87,7 +87,7 @@ export default function Home() {
 
       <main id="top">
         <section className="relative isolate overflow-hidden border-b border-[#13221e]/10">
-          <img src="/manus-storage/explainbytes-hero-system_f2e7dfbb.jpg" alt="Abstract connected systems map on drafting paper" className="absolute inset-0 -z-20 h-full w-full object-cover object-[61%_50%] opacity-95" />
+          <img src="/manus-storage/explainbytes-hero-system-coral_0b3da7d0.png" alt="Abstract connected systems map on drafting paper" className="absolute inset-0 -z-20 h-full w-full object-cover object-[61%_50%] opacity-95" />
           <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#f3f0e8] via-[#f3f0e8]/90 to-[#f3f0e8]/5" />
           <div className="site-shell relative min-h-[690px] py-7 lg:min-h-[730px] lg:py-9">
             <div className="editorial-rail absolute bottom-0 left-0 top-0 hidden w-12 border-r border-[#13221e]/10 xl:block" aria-hidden="true">
@@ -145,7 +145,7 @@ export default function Home() {
 
             <div className="mt-14 grid gap-6 lg:grid-cols-[1.12fr_0.88fr]">
               <article className="group relative min-h-[480px] overflow-hidden bg-[#d9e2da] p-6 sm:p-9">
-                <img src="/manus-storage/explainbytes-docs-study_9858b07e.jpg" alt="Abstract engineering study diagram" loading="lazy" className="absolute inset-0 h-full w-full object-cover mix-blend-multiply transition-transform duration-700 group-hover:scale-[1.035]" />
+                <img src="/manus-storage/explainbytes-docs-study-coral_ac39ca1b.png" alt="Abstract engineering study diagram" loading="lazy" className="absolute inset-0 h-full w-full object-cover mix-blend-multiply transition-transform duration-700 group-hover:scale-[1.035]" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#13221e]/76 via-[#13221e]/10 to-transparent" />
                 <div className="relative flex h-full flex-col justify-between text-[#f7f5ef]">
                   <div className="flex items-start justify-between gap-5">
@@ -169,8 +169,8 @@ export default function Home() {
                     const Icon = subject.icon;
                     const active = activeSubject === subject.title;
                     return (
-                      <button key={subject.title} onClick={() => setActiveSubject(subject.title)} className={`group flex w-full items-center gap-4 py-5 text-left transition-colors sm:gap-6 ${active ? "text-[#13221e]" : "text-[#13221e]/52 hover:text-[#13221e]"}`}>
-                        <span className={`grid h-10 w-10 shrink-0 place-items-center border ${active ? "border-[#13221e] bg-[#e66b5b]" : "border-[#13221e]/20"}`}><Icon size={18} /></span>
+                      <button key={subject.title} data-active={active} onClick={() => setActiveSubject(subject.title)} className={`active-subject-card group flex w-full items-center gap-4 py-5 text-left sm:gap-6 ${active ? "text-[#13221e]" : "text-[#13221e]/52 hover:text-[#13221e]"}`}>
+                        <span className={`active-subject-icon grid h-10 w-10 shrink-0 place-items-center border ${active ? "border-[#13221e] bg-[#e66b5b]" : "border-[#13221e]/20"}`}><Icon size={18} /></span>
                         <span className="min-w-0 flex-1"><span className="block font-display text-[27px] leading-none tracking-[-0.045em]">{subject.title}</span>{active && <span className="mt-2 block font-body text-sm leading-5 text-[#13221e]/62">{subject.blurb}</span>}</span>
                         <span className="font-mono text-[10px] tracking-[0.12em]">{subject.code}</span>
                         <ArrowDownRight size={18} className={`transition-transform duration-300 ${active ? "translate-x-0.5 translate-y-0.5" : ""}`} />
@@ -189,7 +189,7 @@ export default function Home() {
             <div className="relative order-2 lg:order-1">
               <div className="absolute -left-8 top-10 h-[85%] w-[84%] border border-[#13221e]/20 sm:-left-14" aria-hidden="true" />
               <div className="relative min-h-[420px] overflow-hidden bg-[#123d35] p-6 sm:min-h-[500px] sm:p-9">
-                <img src="/manus-storage/explainbytes-flashcards-study_d4dfaee3.jpg" alt="Abstract tactile developer study cards" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-72 mix-blend-luminosity" />
+                <img src="/manus-storage/explainbytes-flashcards-study-coral_9524b708.png" alt="Abstract tactile developer study cards" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-72 mix-blend-luminosity" />
                 <div className="absolute inset-0 bg-[#123d35]/35" />
                 <div className="relative flex h-full flex-col justify-between">
                   <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.15em] text-[#f7f5ef]/70"><span>Recall sequence</span><span>02 / 08</span></div>
@@ -258,7 +258,7 @@ export default function Home() {
             </div>
             <div className="relative">
               <div className="absolute -right-7 -top-8 h-44 w-44 rounded-full border border-[#13221e]/20" aria-hidden="true" />
-              <img src="/manus-storage/explainbytes-collaboration-notes_d0fc2af6.jpg" alt="Abstract collaborative engineering manuscript with connected annotation marks" loading="lazy" className="relative z-10 min-h-[370px] w-full object-cover sm:min-h-[450px]" />
+              <img src="/manus-storage/explainbytes-collaboration-notes-coral_6726963d.png" alt="Abstract collaborative engineering manuscript with connected annotation marks" loading="lazy" className="relative z-10 min-h-[370px] w-full object-cover sm:min-h-[450px]" />
               <div className="relative z-20 -mt-20 ml-auto mr-5 max-w-sm bg-[#f7f5ef] p-5 shadow-[7px_7px_0_#13221e] sm:mr-10 sm:p-6">
                 <div className="flex items-center justify-between border-b border-[#13221e]/15 pb-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#13221e]/58"><span>Shared manuscript</span><span>Live</span></div>
                 <p className="mt-4 font-display text-2xl leading-[0.95] tracking-[-0.04em]">“The cache is not the source of truth.”</p>
