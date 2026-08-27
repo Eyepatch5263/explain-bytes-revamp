@@ -92,6 +92,10 @@
   kbd { border: 1px solid rgba(19, 34, 30, .25); padding: .1rem .28rem; font-size: 9px; }
   .flashcard-feature-card::after { content: ""; position: absolute; right: -16%; bottom: -30%; height: 13rem; width: 13rem; border: 1px solid rgba(230, 107, 91, .35); border-radius: 999px; transition: transform .45s cubic-bezier(.23, 1, .32, 1); }
   .flashcard-feature-card:hover::after { transform: scale(1.18); }
+  .deck-switcher-link { position: relative; color: rgba(19, 34, 30, .58); transition: background .22s cubic-bezier(.23, 1, .32, 1), color .22s cubic-bezier(.23, 1, .32, 1); }
+  .deck-switcher-link::after { content: ""; position: absolute; bottom: 0; left: 0; height: 4px; width: 100%; background: #e66b5b; transform: scaleX(0); transform-origin: left; transition: transform .22s cubic-bezier(.23, 1, .32, 1); }
+  .deck-switcher-link:hover, .deck-switcher-link.is-active { background: #e3eadf; color: #13221e; }
+  .deck-switcher-link.is-active::after { transform: scaleX(1); }
 }
 
 @media (min-width: 640px) { .site-shell { padding-inline: 2rem; } }
@@ -127,6 +131,7 @@
 .dark .dark-library article { background: #20312b; }
 .dark .dark-practice .relative.min-h-\[420px\] { background: #10231e; }
 .dark .flashcard-section { background: #193129 !important; }
+.dark .flashcard-section .section-title { color: #f4efe7 !important; }
 .dark .flashcard-studio { background: #111916; border-color: rgba(244, 239, 231, .16) !important; box-shadow: 10px 10px 0 rgba(230, 107, 91, .17); }
 .dark .flashcard-deckbar, .dark .flashcard-side { border-color: rgba(244, 239, 231, .16) !important; }
 .dark .flashcard-stage-wrap, .dark .flashcard-side { background: #101714 !important; }
@@ -152,6 +157,9 @@
 .dark .flashcard-feature-card :where(.border-b, .border) { border-color: rgba(244, 239, 231, .2) !important; }
 .dark .flashcard-feature-card :where(p, span) { color: #f4efe7 !important; }
 .dark .flashcard-feature-card .text-\[\#e66b5b\] { color: #ff9d90 !important; }
+.dark .deck-switcher { background: #101714 !important; border-color: rgba(244, 239, 231, .15) !important; }
+.dark .deck-switcher-link { color: rgba(244, 239, 231, .62); border-color: rgba(244, 239, 231, .15) !important; }
+.dark .deck-switcher-link:hover, .dark .deck-switcher-link.is-active { background: #1b2924; color: #f4efe7; }
 .dark .dark-coral-index { background: #e1796b !important; }
 .dark .dark-coral-index :where(p, a, span, li) { color: #171211 !important; }
 .dark .dark-coral-index :where(.divide-y, .border-b) { border-color: rgba(23, 18, 17, .22) !important; }

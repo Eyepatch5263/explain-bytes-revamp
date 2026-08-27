@@ -32,3 +32,9 @@
 - [x] Move the full interactive System Design deck to a dedicated flashcards route.
 - [x] Replace the homepage deck with a concise flashcard feature showcase and route CTA.
 - [x] Verify the standalone route, route links, and mobile layouts.
+
+# Additional Flashcard Decks
+
+- [x] Retrieve the existing Operating Systems, Networking, and DBMS question-and-answer data.
+- [x] Add a shared deck selector and reusable routes for the three new study decks.
+- [x] Validate each new deck’s content, interaction, and responsive layout.
