@@ -76,3 +76,12 @@
 - [x] Audit the DNS, database, and load-balancing simulation visuals and controls for design-system mismatches.
 - [x] Add a shared coral-aware Flash Docs simulation shell and theme-consistent controls.
 - [x] Verify all simulation routes retain their interactions and match the reader at desktop and mobile sizes.
+
+# Polished Loading States
+
+- [x] Audit high-visibility asynchronous and lazy-loaded experiences for missing or generic loading feedback.
+- [x] Add reusable coral-aware skeletons with accessible loading labels and reduced-motion support.
+- [x] Apply contextual loading states to the Flash Docs reader, simulations, and chapter audio.
+- [x] Add tests and verify loading states in light, dark, desktop, and mobile presentations.
+- [x] Capture the shared skeleton in light and dark themes at desktop and mobile breakpoints.
+- [x] Verify the chapter-audio pending control remains readable and announces its state in both themes.

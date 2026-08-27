@@ -45,8 +45,8 @@ export function ChapterAudioPlayer({ slug, title }: ChapterAudioPlayerProps) {
   const toggleMute = () => { const next = !muted; setMuted(next); if (audioRef.current) audioRef.current.muted = next; };
 
   return <>
-    <button className="flashdocs-listen-button" type="button" onClick={() => void togglePlayback()} disabled={listener.isPending}>
-      {listener.isPending ? <Loader2 size={15} /> : playing ? <Pause size={15} /> : <Play size={15} fill="currentColor" />} {listener.isPending ? "Preparing audio" : playing ? "Pause listening" : "Listen to chapter"}
+    <button className="flashdocs-listen-button" type="button" onClick={() => void togglePlayback()} disabled={listener.isPending} aria-busy={listener.isPending} aria-live="polite">
+      {listener.isPending ? <Loader2 className="flashdocs-listen-button__spinner" size={15} /> : playing ? <Pause size={15} /> : <Play size={15} fill="currentColor" />} {listener.isPending ? "Preparing audio" : playing ? "Pause listening" : "Listen to chapter"}
     </button>
     {visible && <aside className="flashdocs-audio-player" aria-label="Chapter audio player">
       <div className="flashdocs-audio-player__title"><span>NOW PLAYING / TTS</span><b>{title}</b></div>
