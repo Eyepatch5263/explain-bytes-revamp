@@ -6,6 +6,7 @@ import SimulationDashboard from "@/components/simulations/system-design/load-bal
 import { ChapterAudioPlayer } from "@/components/docs/ChapterAudioPlayer";
 import { systemDesignMdxComponents } from "@/components/docs/SystemDesignMdxComponents";
 import { getChapterHeadings, getSystemDesignCategories, getSystemDesignDoc, simulationSlugs, systemDesignDocs } from "@/lib/systemDesignDocs";
+import "./systemDesignReaderWide.css";
 
 type SystemDesignReaderProps = {
   slug?: string;

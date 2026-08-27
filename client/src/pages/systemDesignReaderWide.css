@@ -1,0 +1,36 @@
+@media (min-width: 1280px) {
+  .flashdocs-reader-layout {
+    grid-template-columns: 268px minmax(0, 1fr) 244px;
+    max-width: none;
+  }
+
+  .flashdocs-reader-sidebar { padding-inline: 1.75rem; }
+
+  .flashdocs-article {
+    width: 100%;
+    max-width: none;
+    padding-inline: clamp(1.75rem, 3vw, 3.75rem);
+  }
+
+  .flashdocs-article-heading,
+  .flashdocs-mdx-content > :is(p, ul, ol, blockquote),
+  .flashdocs-mdx-content > h1,
+  .flashdocs-mdx-content > h2,
+  .flashdocs-mdx-content > h3,
+  .flashdocs-mdx-content > h4 {
+    max-width: none;
+  }
+
+  .flashdocs-mdx-content > :is(.flashdocs-code, .flashdocs-table-wrap, .flashdocs-diagram, .flashdocs-math-block) {
+    max-width: none;
+  }
+
+  .flashdocs-simulation-shell { width: 100%; }
+}
+
+@media (min-width: 1680px) {
+  .flashdocs-reader-layout { grid-template-columns: 285px minmax(0, 1fr) 270px; }
+  .flashdocs-article { padding-inline: clamp(2.5rem, 4vw, 5rem); }
+  .flashdocs-mdx-content > :is(p, ul, ol, blockquote),
+  .flashdocs-article-heading { max-width: none; }
+}

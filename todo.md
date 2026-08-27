@@ -52,3 +52,12 @@
 - [x] Use the original System Design topic metadata and source category order in the reader catalogue and chapter navigation.
 - [x] Convert source MDX note, tip, warning, and caution alerts into readable Flash Docs callouts.
 - [x] Verify the library, chapter reader, and DNS simulation at the mobile breakpoint.
+
+# Wide-Screen Flash Docs Reader
+
+- [x] Expand the desktop article column to use large screens more effectively while preserving the chapter and outline rails.
+- [x] Verify the expanded reader at desktop and retain the current mobile reading width.
+
+# Wide-Screen Reader Mobile Regression Check
+
+- [x] Confirm the mobile reader remains unchanged below the desktop-only 1280px layout breakpoint.
