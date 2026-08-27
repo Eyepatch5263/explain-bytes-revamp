@@ -27,7 +27,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "@/contexts/ThemeContext";
-import { FlashcardDeck } from "@/components/FlashcardDeck";
 
 const subjects = [
   { code: "01", title: "System Design", blurb: "Make trade-offs visible before you make them.", icon: Network, color: "blue" },
@@ -65,7 +64,7 @@ export default function Home() {
           </a>
           <nav className="hidden items-center gap-7 font-mono text-[11px] font-medium uppercase tracking-[0.11em] text-[#13221e]/70 lg:flex" aria-label="Primary navigation">
             <a className="nav-link" href="#library">Library</a>
-            <a className="nav-link" href="#practice">Flash cards</a>
+            <a className="nav-link" href="/flashcards">Flash cards</a>
             <a className="nav-link" href="#terms">Terms</a>
             <a className="nav-link" href="#collaborate">Collaborate</a>
           </nav>
@@ -83,7 +82,7 @@ export default function Home() {
           <nav className="border-t border-[#13221e]/10 bg-[#f3f0e8] px-5 py-5 lg:hidden" aria-label="Mobile navigation">
             <div className="site-shell flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.1em]">
               {["Library", "Flash cards", "Terms", "Collaborate"].map((item, index) => (
-                <a key={item} href={["#library", "#practice", "#terms", "#collaborate"][index]} onClick={() => setMobileOpen(false)} className="flex items-center justify-between border-b border-[#13221e]/10 py-4">
+                <a key={item} href={["#library", "/flashcards", "#terms", "#collaborate"][index]} onClick={() => setMobileOpen(false)} className="flex items-center justify-between border-b border-[#13221e]/10 py-4">
                   {item} <ArrowDownRight size={16} />
                 </a>
               ))}
@@ -120,7 +119,7 @@ export default function Home() {
                   <a href="#library" className="group inline-flex items-center gap-3 bg-[#13221e] px-5 py-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#f5f1e8] transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0_#e66b5b] active:scale-[0.97]">
                     Read a concept <ArrowRight className="transition-transform duration-200 group-hover:translate-x-1" size={15} />
                   </a>
-                  <a href="#practice" className="inline-flex items-center gap-2 border-b border-[#13221e] py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors hover:text-[#4072f6]">
+                  <a href="/flashcards" className="inline-flex items-center gap-2 border-b border-[#13221e] py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors hover:text-[#4072f6]">
                     Try a flash card <ChevronRight size={15} />
                   </a>
                 </div>
@@ -194,7 +193,22 @@ export default function Home() {
           </div>
         </section>
 
-        <FlashcardDeck />
+        <section id="practice" className="dark-practice flashcard-feature-section relative overflow-hidden bg-[#e3eadf] py-24 sm:py-32">
+          <div className="site-shell grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <p className="eyebrow">02 / Practice with intent</p>
+              <h2 className="section-title mt-5 max-w-lg">Turn concepts into <em>instinct.</em></h2>
+              <p className="mt-7 max-w-lg font-body text-[17px] leading-7 text-[#13221e]/68">The full study room gives each concept the attention it needs: one precise question, a considered answer, and a lightweight way to keep your progress moving.</p>
+              <div className="mt-9 grid max-w-lg grid-cols-3 gap-0 border-y border-[#13221e]/15 py-6"><div><p className="font-display text-4xl tracking-[-0.05em]">20</p><p className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-[#13221e]/55">System cards</p></div><div className="border-x border-[#13221e]/15 pl-5"><p className="font-display text-4xl tracking-[-0.05em]">4</p><p className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-[#13221e]/55">Study actions</p></div><div className="pl-5"><p className="font-display text-4xl tracking-[-0.05em]">1</p><p className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-[#13221e]/55">Focused room</p></div></div>
+              <a href="/flashcards" className="mt-9 inline-flex items-center gap-3 bg-[#13221e] px-5 py-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#f5f1e8] transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0_#e66b5b] active:scale-[0.97]">Open flashcard study room <ArrowRight size={15} /></a>
+            </div>
+            <a href="/flashcards" className="flashcard-feature-card group relative block overflow-hidden border border-[#13221e]/15 bg-[#f7f5ef] p-5 shadow-[9px_9px_0_rgba(19,34,30,0.1)] transition-transform duration-300 hover:-translate-y-1 sm:p-7">
+              <div className="flex items-center justify-between border-b border-[#13221e]/15 pb-4"><span className="inline-flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em]"><span className="grid h-7 w-7 place-items-center bg-[#e66b5b]"><Sparkles size={14} /></span> System Design</span><span className="font-mono text-[10px] uppercase tracking-[0.13em] text-[#13221e]/50">01 / 20</span></div>
+              <div className="mt-5 min-h-[260px] border border-[#13221e]/20 bg-[#f3f0e8] p-6 sm:min-h-[310px] sm:p-8"><div className="flex items-center justify-between"><span className="border border-[#13221e]/25 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.14em]">Question</span><span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#13221e]/45">Tap to study</span></div><p className="mt-14 max-w-xl font-display text-[clamp(2.4rem,4.4vw,4.1rem)] leading-[0.9] tracking-[-0.06em]">What is horizontal vs vertical scaling?</p><p className="mt-8 inline-flex items-center gap-2 border-b border-[#e66b5b] pb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.13em]">Reveal answer <ArrowRight size={14} /></p></div>
+              <div className="mt-5 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.12em] text-[#13221e]/55"><span>Recall / Decide / Repeat</span><span className="inline-flex items-center gap-2 text-[#e66b5b]">Study now <ArrowDownRight size={15} className="transition-transform duration-300 group-hover:translate-y-1" /></span></div>
+            </a>
+          </div>
+        </section>
 
         <section id="terms" className="dark-terms border-y border-[#13221e]/10 bg-[#f7f5ef] py-24 sm:py-32">
           <div className="site-shell">
@@ -266,7 +280,7 @@ export default function Home() {
         <div className="site-shell border-t border-[#f7f5ef]/15 py-8">
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <a className="flex items-center gap-3" href="#top"><img src="/manus-storage/explainbytes-mark_4502821d.png" className="h-9 w-9" alt="" /><span className="font-display text-2xl tracking-[-0.05em]">Explain Bytes</span></a>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#f7f5ef]/58"><a href="#library" className="hover:text-[#e66b5b]">Docs</a><a href="#practice" className="hover:text-[#e66b5b]">Practice</a><a href="#terms" className="hover:text-[#e66b5b]">Terms</a><a href="https://github.com/Eyepatch5263" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-[#e66b5b]"><Github size={14} /> GitHub</a></div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#f7f5ef]/58"><a href="#library" className="hover:text-[#e66b5b]">Docs</a><a href="/flashcards" className="hover:text-[#e66b5b]">Practice</a><a href="#terms" className="hover:text-[#e66b5b]">Terms</a><a href="https://github.com/Eyepatch5263" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-[#e66b5b]"><Github size={14} /> GitHub</a></div>
           </div>
           <div className="mt-10 flex flex-col justify-between gap-3 border-t border-[#f7f5ef]/10 pt-4 font-mono text-[9px] uppercase tracking-[0.12em] text-[#f7f5ef]/40 sm:flex-row"><span>© 2026 Explain Bytes</span><span>Trace the idea. Keep the system.</span></div>
         </div>

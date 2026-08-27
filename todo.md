@@ -26,3 +26,9 @@
 - [x] Locate and understand the existing flashcard questions and answers in the repository.
 - [x] Build the full homepage flashcard experience from the existing content.
 - [x] Verify flashcard navigation, answer reveal, and responsive presentation.
+
+# Flashcard Route Separation
+
+- [x] Move the full interactive System Design deck to a dedicated flashcards route.
+- [x] Replace the homepage deck with a concise flashcard feature showcase and route CTA.
+- [x] Verify the standalone route, route links, and mobile layouts.
