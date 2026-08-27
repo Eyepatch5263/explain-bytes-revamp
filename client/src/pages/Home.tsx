@@ -1,7 +1,7 @@
 /**
  * Marginalia Lab design reminder: build this page like an annotated technical dossier—
  * asymmetric editorial structure, warm paper, precise ink linework, cobalt evidence,
- * and Trace Lime only for active learning moments.
+ * and Signal Coral only for active learning moments.
  */
 import { useState } from "react";
 import {
@@ -52,7 +52,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#f3f0e8] text-[#13221e] selection:bg-[#d6ff39] selection:text-[#13221e]">
+    <div className="min-h-screen overflow-x-clip bg-[#f3f0e8] text-[#13221e] selection:bg-[#e66b5b] selection:text-[#13221e]">
       <header className="relative z-30 border-b border-[#13221e]/10 bg-[#f3f0e8]/95 backdrop-blur">
         <div className="site-shell flex h-[74px] items-center justify-between gap-6">
           <a className="group flex shrink-0 items-center gap-3" href="#top" aria-label="Explain Bytes home">
@@ -96,7 +96,7 @@ export default function Home() {
             <div className="grid h-full min-h-[640px] items-end gap-8 xl:pl-16">
               <div className="max-w-3xl pb-14 pt-20 sm:pt-24">
                 <div className="mb-8 flex items-center gap-3 font-mono text-[11px] font-medium uppercase tracking-[0.15em] text-[#13221e]/65">
-                  <span className="inline-block h-2 w-2 rounded-full bg-[#d6ff39] ring-4 ring-[#d6ff39]/30" />
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#e66b5b] ring-4 ring-[#e66b5b]/30" />
                   The developer’s field guide
                 </div>
                 <h1 className="max-w-[760px] font-display text-[clamp(3.9rem,8.7vw,8.5rem)] leading-[0.83] tracking-[-0.075em] text-[#13221e]">
@@ -107,7 +107,7 @@ export default function Home() {
                   Trace the systems behind the software you use. Clear explanations, memorable diagrams, and practice that turns knowledge into instinct.
                 </p>
                 <div className="mt-10 flex flex-wrap items-center gap-3">
-                  <a href="#library" className="group inline-flex items-center gap-3 bg-[#13221e] px-5 py-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#f5f1e8] transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0_#d6ff39] active:scale-[0.97]">
+                  <a href="#library" className="group inline-flex items-center gap-3 bg-[#13221e] px-5 py-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#f5f1e8] transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0_#e66b5b] active:scale-[0.97]">
                     Read a concept <ArrowRight className="transition-transform duration-200 group-hover:translate-x-1" size={15} />
                   </a>
                   <a href="#practice" className="inline-flex items-center gap-2 border-b border-[#13221e] py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors hover:text-[#4072f6]">
@@ -126,9 +126,9 @@ export default function Home() {
 
         <section className="relative border-b border-[#13221e]/10 bg-[#13221e] text-[#f3f0e8]">
           <div className="site-shell grid gap-8 py-7 md:grid-cols-[0.7fr_1.3fr] md:items-center md:py-0">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#d6ff39]">What you will build fluency in</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#e66b5b]">What you will build fluency in</p>
             <div className="flex flex-wrap items-center gap-x-7 gap-y-4 py-1 font-display text-2xl tracking-[-0.03em] sm:text-3xl md:min-h-20 md:py-5">
-              <span>Systems</span><span className="text-[#d6ff39]">/</span><span>Foundations</span><span className="text-[#d6ff39]">/</span><span>Deep concepts</span>
+              <span>Systems</span><span className="text-[#e66b5b]">/</span><span>Foundations</span><span className="text-[#e66b5b]">/</span><span>Deep concepts</span>
             </div>
           </div>
         </section>
@@ -149,13 +149,13 @@ export default function Home() {
                 <div className="absolute inset-0 bg-gradient-to-t from-[#13221e]/76 via-[#13221e]/10 to-transparent" />
                 <div className="relative flex h-full flex-col justify-between text-[#f7f5ef]">
                   <div className="flex items-start justify-between gap-5">
-                    <span className="inline-flex items-center gap-2 bg-[#d6ff39] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.13em] text-[#13221e]"><BookOpen size={14} /> Flash docs</span>
+                    <span className="inline-flex items-center gap-2 bg-[#e66b5b] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.13em] text-[#13221e]"><BookOpen size={14} /> Flash docs</span>
                     <span className="font-mono text-[11px] tracking-[0.15em] text-[#f7f5ef]/65">01—07</span>
                   </div>
                   <div className="max-w-md">
                     <h3 className="font-display text-5xl leading-[0.9] tracking-[-0.055em] sm:text-6xl">Read the why,<br /><i>not only the what.</i></h3>
                     <p className="mt-5 max-w-sm font-body leading-6 text-[#f7f5ef]/78">Visual explanations shaped around mental models, trade-offs, and real engineering context.</p>
-                    <a href="#terms" className="mt-7 inline-flex items-center gap-2 border-b border-[#d6ff39] pb-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#d6ff39]">Open the library <ArrowRight size={15} /></a>
+                    <a href="#terms" className="mt-7 inline-flex items-center gap-2 border-b border-[#e66b5b] pb-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#e66b5b]">Open the library <ArrowRight size={15} /></a>
                   </div>
                 </div>
               </article>
@@ -170,7 +170,7 @@ export default function Home() {
                     const active = activeSubject === subject.title;
                     return (
                       <button key={subject.title} onClick={() => setActiveSubject(subject.title)} className={`group flex w-full items-center gap-4 py-5 text-left transition-colors sm:gap-6 ${active ? "text-[#13221e]" : "text-[#13221e]/52 hover:text-[#13221e]"}`}>
-                        <span className={`grid h-10 w-10 shrink-0 place-items-center border ${active ? "border-[#13221e] bg-[#d6ff39]" : "border-[#13221e]/20"}`}><Icon size={18} /></span>
+                        <span className={`grid h-10 w-10 shrink-0 place-items-center border ${active ? "border-[#13221e] bg-[#e66b5b]" : "border-[#13221e]/20"}`}><Icon size={18} /></span>
                         <span className="min-w-0 flex-1"><span className="block font-display text-[27px] leading-none tracking-[-0.045em]">{subject.title}</span>{active && <span className="mt-2 block font-body text-sm leading-5 text-[#13221e]/62">{subject.blurb}</span>}</span>
                         <span className="font-mono text-[10px] tracking-[0.12em]">{subject.code}</span>
                         <ArrowDownRight size={18} className={`transition-transform duration-300 ${active ? "translate-x-0.5 translate-y-0.5" : ""}`} />
@@ -194,12 +194,12 @@ export default function Home() {
                 <div className="relative flex h-full flex-col justify-between">
                   <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.15em] text-[#f7f5ef]/70"><span>Recall sequence</span><span>02 / 08</span></div>
                   <div className="border border-[#f7f5ef]/25 bg-[#f7f5ef]/10 p-6 backdrop-blur-sm sm:p-8">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#d6ff39]">System design</p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#e66b5b]">System design</p>
                     <p className="mt-5 font-display text-4xl leading-[0.92] tracking-[-0.05em] text-[#f7f5ef] sm:text-5xl">What does it mean for an operation to be idempotent?</p>
                     {revealed ? (
-                      <p className="mt-5 border-l-2 border-[#d6ff39] pl-4 font-body text-[15px] leading-6 text-[#f7f5ef]/78">Repeating it has the same intended effect as performing it once—a useful safety property for retries.</p>
+                      <p className="mt-5 border-l-2 border-[#e66b5b] pl-4 font-body text-[15px] leading-6 text-[#f7f5ef]/78">Repeating it has the same intended effect as performing it once—a useful safety property for retries.</p>
                     ) : (
-                      <button onClick={() => setRevealed(true)} className="mt-7 inline-flex items-center gap-2 border-b border-[#d6ff39] pb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#d6ff39]">Reveal answer <ArrowRight size={15} /></button>
+                      <button onClick={() => setRevealed(true)} className="mt-7 inline-flex items-center gap-2 border-b border-[#e66b5b] pb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#e66b5b]">Reveal answer <ArrowRight size={15} /></button>
                     )}
                   </div>
                 </div>
@@ -213,7 +213,7 @@ export default function Home() {
                 <div><p className="font-display text-4xl tracking-[-0.05em]">7</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[#13221e]/55">Study collections</p></div>
                 <div><p className="font-display text-4xl tracking-[-0.05em]">1 min</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[#13221e]/55">To build momentum</p></div>
               </div>
-              <a href="#practice" onClick={() => setRevealed(false)} className="mt-9 inline-flex items-center gap-3 bg-[#13221e] px-5 py-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#f5f1e8] transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0_#d6ff39] active:scale-[0.97]">Start revising <ArrowRight size={15} /></a>
+              <a href="#practice" onClick={() => setRevealed(false)} className="mt-9 inline-flex items-center gap-3 bg-[#13221e] px-5 py-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#f5f1e8] transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0_#e66b5b] active:scale-[0.97]">Start revising <ArrowRight size={15} /></a>
             </div>
           </div>
         </section>
@@ -228,13 +228,13 @@ export default function Home() {
               <div className="min-h-[400px] bg-[#13221e] p-6 text-[#f7f5ef] sm:p-9">
                 <div className="flex items-center gap-3 border-b border-[#f7f5ef]/20 pb-5 font-mono text-[11px] uppercase tracking-[0.13em] text-[#f7f5ef]/60"><Search size={16} /><span>Search concepts, patterns, terms</span></div>
                 <div className="mt-14 max-w-xl">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#d6ff39]">Concept of the day</p>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#e66b5b]">Concept of the day</p>
                   <h3 className="mt-5 font-display text-6xl leading-none tracking-[-0.07em] sm:text-7xl">CAP<br /><i>Theorem</i></h3>
                   <p className="mt-6 max-w-lg font-body leading-7 text-[#f7f5ef]/70">A framework for seeing the unavoidable trade-offs between consistency, availability, and partition tolerance in a distributed system.</p>
-                  <a href="#terms" className="mt-8 inline-flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#d6ff39]">Open explanation <ArrowRight size={15} /></a>
+                  <a href="#terms" className="mt-8 inline-flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#e66b5b]">Open explanation <ArrowRight size={15} /></a>
                 </div>
               </div>
-              <div className="relative bg-[#d6ff39] p-6 sm:p-9">
+              <div className="relative bg-[#e66b5b] p-6 sm:p-9">
                 <span className="absolute right-7 top-7 font-mono text-[10px] uppercase tracking-[0.15em] text-[#13221e]/60">Index / 2,000+</span>
                 <div className="mt-20">
                   <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#13221e]/60">Frequently connected</p>
@@ -262,22 +262,22 @@ export default function Home() {
               <div className="relative z-20 -mt-20 ml-auto mr-5 max-w-sm bg-[#f7f5ef] p-5 shadow-[7px_7px_0_#13221e] sm:mr-10 sm:p-6">
                 <div className="flex items-center justify-between border-b border-[#13221e]/15 pb-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#13221e]/58"><span>Shared manuscript</span><span>Live</span></div>
                 <p className="mt-4 font-display text-2xl leading-[0.95] tracking-[-0.04em]">“The cache is not the source of truth.”</p>
-                <div className="mt-5 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-full bg-[#d6ff39] font-mono text-[10px]">AR</span><span className="grid h-7 w-7 place-items-center rounded-full bg-[#4072f6] font-mono text-[10px] text-white">SK</span><span className="grid h-7 w-7 place-items-center rounded-full bg-[#123d35] font-mono text-[10px] text-white">+3</span><span className="ml-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[#13221e]/58">editing now</span></div>
+                <div className="mt-5 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-full bg-[#e66b5b] font-mono text-[10px]">AR</span><span className="grid h-7 w-7 place-items-center rounded-full bg-[#4072f6] font-mono text-[10px] text-white">SK</span><span className="grid h-7 w-7 place-items-center rounded-full bg-[#123d35] font-mono text-[10px] text-white">+3</span><span className="ml-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[#13221e]/58">editing now</span></div>
               </div>
             </div>
           </div>
         </section>
 
         <section className="relative overflow-hidden bg-[#13221e] py-24 text-[#f7f5ef] sm:py-32">
-          <div className="absolute -right-20 -top-12 h-80 w-80 rounded-full border border-[#d6ff39]/25" aria-hidden="true" />
-          <div className="absolute -right-7 top-12 h-56 w-56 rounded-full border border-[#d6ff39]/20" aria-hidden="true" />
+          <div className="absolute -right-20 -top-12 h-80 w-80 rounded-full border border-[#e66b5b]/35" aria-hidden="true" />
+          <div className="absolute -right-7 top-12 h-56 w-56 rounded-full border border-[#e66b5b]/30" aria-hidden="true" />
           <div className="site-shell relative grid gap-12 lg:grid-cols-[1.08fr_0.92fr] lg:items-end">
-            <div><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#d6ff39]">A useful note, every so often</p><h2 className="mt-5 max-w-3xl font-display text-[clamp(3.3rem,7vw,6.7rem)] leading-[0.86] tracking-[-0.07em]">Stay close to the <i>good stuff.</i></h2></div>
+            <div><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#e66b5b]">A useful note, every so often</p><h2 className="mt-5 max-w-3xl font-display text-[clamp(3.3rem,7vw,6.7rem)] leading-[0.86] tracking-[-0.07em]">Stay close to the <i>good stuff.</i></h2></div>
             <form onSubmit={submitNewsletter} className="border-t border-[#f7f5ef]/25 pt-6">
               <label htmlFor="email" className="font-body text-[17px] leading-7 text-[#f7f5ef]/72">New concepts, fresh systems breakdowns, and practical revision prompts. No noisy feed.</label>
-              <div className="mt-7 flex border-b border-[#f7f5ef]/65 pb-2 focus-within:border-[#d6ff39]">
+              <div className="mt-7 flex border-b border-[#f7f5ef]/65 pb-2 focus-within:border-[#e66b5b]">
                 <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@domain.com" className="min-w-0 flex-1 bg-transparent font-mono text-sm text-[#f7f5ef] outline-none placeholder:text-[#f7f5ef]/35" aria-label="Email address" />
-                <button type="submit" className="ml-3 inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#d6ff39] transition-transform duration-200 hover:translate-x-1 active:scale-[0.97]">{subscribed ? <><Check size={16} /> Joined</> : <>Join list <ArrowRight size={16} /></>}</button>
+                <button type="submit" className="ml-3 inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#e66b5b] transition-transform duration-200 hover:translate-x-1 active:scale-[0.97]">{subscribed ? <><Check size={16} /> Joined</> : <>Join list <ArrowRight size={16} /></>}</button>
               </div>
             </form>
           </div>
@@ -288,7 +288,7 @@ export default function Home() {
         <div className="site-shell border-t border-[#f7f5ef]/15 py-8">
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <a className="flex items-center gap-3" href="#top"><img src="/manus-storage/explainbytes-mark_4502821d.png" className="h-9 w-9" alt="" /><span className="font-display text-2xl tracking-[-0.05em]">Explain Bytes</span></a>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#f7f5ef]/58"><a href="#library" className="hover:text-[#d6ff39]">Docs</a><a href="#practice" className="hover:text-[#d6ff39]">Practice</a><a href="#terms" className="hover:text-[#d6ff39]">Terms</a><a href="https://github.com/Eyepatch5263" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-[#d6ff39]"><Github size={14} /> GitHub</a></div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#f7f5ef]/58"><a href="#library" className="hover:text-[#e66b5b]">Docs</a><a href="#practice" className="hover:text-[#e66b5b]">Practice</a><a href="#terms" className="hover:text-[#e66b5b]">Terms</a><a href="https://github.com/Eyepatch5263" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-[#e66b5b]"><Github size={14} /> GitHub</a></div>
           </div>
           <div className="mt-10 flex flex-col justify-between gap-3 border-t border-[#f7f5ef]/10 pt-4 font-mono text-[9px] uppercase tracking-[0.12em] text-[#f7f5ef]/40 sm:flex-row"><span>© 2026 Explain Bytes</span><span>Trace the idea. Keep the system.</span></div>
         </div>
