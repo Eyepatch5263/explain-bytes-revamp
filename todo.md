@@ -61,3 +61,12 @@
 # Wide-Screen Reader Mobile Regression Check
 
 - [x] Confirm the mobile reader remains unchanged below the desktop-only 1280px layout breakpoint.
+
+# Desktop Article Content Fill Correction
+
+- [x] Remove the remaining desktop prose and heading width caps so chapter content visibly fills the central reader pane.
+- [x] Verify the corrected full-width desktop content presentation.
+
+# Full-Width Desktop Verification
+
+- [x] Confirm at 1600px desktop width that the article heading, prose, tables, diagrams, and simulations span the full available middle pane between the navigation rails.
