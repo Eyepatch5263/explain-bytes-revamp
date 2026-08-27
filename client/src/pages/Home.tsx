@@ -17,13 +17,16 @@ import {
   Github,
   Layers3,
   Menu,
+  Moon,
   Network,
   Search,
   Sparkles,
+  Sun,
   UsersRound,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const subjects = [
   { code: "01", title: "System Design", blurb: "Make trade-offs visible before you make them.", icon: Network, color: "blue" },
@@ -35,6 +38,7 @@ const subjects = [
 const terms = ["Idempotency", "Quorum", "B+ Tree", "Deadlock", "Rate limiting", "CAP theorem"];
 
 export default function Home() {
+  const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSubject, setActiveSubject] = useState("System Design");
   const [revealed, setRevealed] = useState(false);
@@ -52,8 +56,8 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#f3f0e8] text-[#13221e] selection:bg-[#e66b5b] selection:text-[#13221e]">
-      <header className="relative z-30 border-b border-[#13221e]/10 bg-[#f3f0e8]/95 backdrop-blur">
+    <div className="dark-theme-page min-h-screen overflow-x-clip bg-[#f3f0e8] text-[#13221e] selection:bg-[#e66b5b] selection:text-[#13221e]">
+      <header className="dark-header relative z-30 border-b border-[#13221e]/10 bg-[#f3f0e8]/95 backdrop-blur">
         <div className="site-shell flex h-[74px] items-center justify-between gap-6">
           <a className="group flex shrink-0 items-center gap-3" href="#top" aria-label="Explain Bytes home">
             <img src="/manus-storage/explainbytes-mark_4502821d.png" className="h-10 w-10 transition-transform duration-300 group-hover:rotate-[-7deg]" alt="Explain Bytes signal mark" />
@@ -65,6 +69,9 @@ export default function Home() {
             <a className="nav-link" href="#terms">Terms</a>
             <a className="nav-link" href="#collaborate">Collaborate</a>
           </nav>
+          <button onClick={toggleTheme} className="theme-toggle hidden h-10 items-center gap-2 rounded-full border border-[#13221e]/15 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}<span>{theme === "dark" ? "Light" : "Dark"}</span>
+          </button>
           <a className="hidden items-center gap-2 rounded-full bg-[#13221e] px-5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-[#f3f0e8] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" href="#library">
             Begin learning <ArrowRight size={14} />
           </a>
@@ -80,15 +87,18 @@ export default function Home() {
                   {item} <ArrowDownRight size={16} />
                 </a>
               ))}
+              <button onClick={toggleTheme} className="mt-4 flex w-full items-center justify-between border border-[#13221e]/15 px-4 py-3 text-left" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+                <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>{theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
             </div>
           </nav>
         )}
       </header>
 
       <main id="top">
-        <section className="relative isolate overflow-hidden border-b border-[#13221e]/10">
-          <img src="/manus-storage/explainbytes-hero-system-coral_0b3da7d0.png" alt="Abstract connected systems map on drafting paper" className="absolute inset-0 -z-20 h-full w-full object-cover object-[61%_50%] opacity-95" />
-          <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#f3f0e8] via-[#f3f0e8]/90 to-[#f3f0e8]/5" />
+        <section className="dark-hero relative isolate overflow-hidden border-b border-[#13221e]/10">
+          <img src="/manus-storage/explainbytes-hero-system-coral_0b3da7d0.png" alt="Abstract connected systems map on drafting paper" className="dark-hero-image absolute inset-0 -z-20 h-full w-full object-cover object-[61%_50%] opacity-95" />
+          <div className="dark-hero-overlay absolute inset-0 -z-10 bg-gradient-to-r from-[#f3f0e8] via-[#f3f0e8]/90 to-[#f3f0e8]/5" />
           <div className="site-shell relative min-h-[690px] py-7 lg:min-h-[730px] lg:py-9">
             <div className="editorial-rail absolute bottom-0 left-0 top-0 hidden w-12 border-r border-[#13221e]/10 xl:block" aria-hidden="true">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.24em] text-[#13221e]/45">Field notes / 001</span>
@@ -133,7 +143,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="library" className="relative overflow-hidden bg-[#f7f5ef] py-24 sm:py-32">
+        <section id="library" className="dark-library relative overflow-hidden bg-[#f7f5ef] py-24 sm:py-32">
           <div className="site-shell">
             <div className="grid gap-12 lg:grid-cols-[0.86fr_1.14fr] lg:items-end">
               <div>
@@ -184,7 +194,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="practice" className="relative overflow-hidden bg-[#e3eadf] py-24 sm:py-32">
+        <section id="practice" className="dark-practice relative overflow-hidden bg-[#e3eadf] py-24 sm:py-32">
           <div className="site-shell grid gap-16 lg:grid-cols-[0.87fr_1.13fr] lg:items-center">
             <div className="relative order-2 lg:order-1">
               <div className="absolute -left-8 top-10 h-[85%] w-[84%] border border-[#13221e]/20 sm:-left-14" aria-hidden="true" />
@@ -218,7 +228,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="terms" className="border-y border-[#13221e]/10 bg-[#f7f5ef] py-24 sm:py-32">
+        <section id="terms" className="dark-terms border-y border-[#13221e]/10 bg-[#f7f5ef] py-24 sm:py-32">
           <div className="site-shell">
             <div className="grid gap-12 lg:grid-cols-[1fr_0.82fr] lg:items-end">
               <div><p className="eyebrow">03 / The concept index</p><h2 className="section-title mt-5">Search less.<br /><em>Understand more.</em></h2></div>
@@ -234,7 +244,7 @@ export default function Home() {
                   <a href="#terms" className="mt-8 inline-flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#e66b5b]">Open explanation <ArrowRight size={15} /></a>
                 </div>
               </div>
-              <div className="relative bg-[#e66b5b] p-6 sm:p-9">
+              <div className="dark-coral-index relative bg-[#e66b5b] p-6 sm:p-9">
                 <span className="absolute right-7 top-7 font-mono text-[10px] uppercase tracking-[0.15em] text-[#13221e]/60">Index / 2,000+</span>
                 <div className="mt-20">
                   <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#13221e]/60">Frequently connected</p>
@@ -247,7 +257,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="collaborate" className="relative overflow-hidden bg-[#d8dfd7] py-24 sm:py-32">
+        <section id="collaborate" className="dark-collaboration relative overflow-hidden bg-[#d8dfd7] py-24 sm:py-32">
           <div className="site-shell grid gap-14 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
             <div>
               <p className="eyebrow">04 / Knowledge, together</p>
@@ -259,7 +269,7 @@ export default function Home() {
             <div className="relative">
               <div className="absolute -right-7 -top-8 h-44 w-44 rounded-full border border-[#13221e]/20" aria-hidden="true" />
               <img src="/manus-storage/explainbytes-collaboration-notes-coral_6726963d.png" alt="Abstract collaborative engineering manuscript with connected annotation marks" loading="lazy" className="relative z-10 min-h-[370px] w-full object-cover sm:min-h-[450px]" />
-              <div className="relative z-20 -mt-20 ml-auto mr-5 max-w-sm bg-[#f7f5ef] p-5 shadow-[7px_7px_0_#13221e] sm:mr-10 sm:p-6">
+              <div className="dark-collab-note relative z-20 -mt-20 ml-auto mr-5 max-w-sm bg-[#f7f5ef] p-5 shadow-[7px_7px_0_#13221e] sm:mr-10 sm:p-6">
                 <div className="flex items-center justify-between border-b border-[#13221e]/15 pb-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#13221e]/58"><span>Shared manuscript</span><span>Live</span></div>
                 <p className="mt-4 font-display text-2xl leading-[0.95] tracking-[-0.04em]">“The cache is not the source of truth.”</p>
                 <div className="mt-5 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-full bg-[#e66b5b] font-mono text-[10px]">AR</span><span className="grid h-7 w-7 place-items-center rounded-full bg-[#4072f6] font-mono text-[10px] text-white">SK</span><span className="grid h-7 w-7 place-items-center rounded-full bg-[#123d35] font-mono text-[10px] text-white">+3</span><span className="ml-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[#13221e]/58">editing now</span></div>
