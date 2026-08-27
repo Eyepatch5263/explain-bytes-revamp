@@ -20,3 +20,9 @@
 
 - [x] Apply a dark menu surface and high-contrast navigation states on mobile.
 - [x] Verify the expanded mobile menu while dark mode is active.
+
+# Repository-Backed Flashcard Section
+
+- [x] Locate and understand the existing flashcard questions and answers in the repository.
+- [x] Build the full homepage flashcard experience from the existing content.
+- [x] Verify flashcard navigation, answer reveal, and responsive presentation.

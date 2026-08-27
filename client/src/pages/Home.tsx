@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "@/contexts/ThemeContext";
+import { FlashcardDeck } from "@/components/FlashcardDeck";
 
 const subjects = [
   { code: "01", title: "System Design", blurb: "Make trade-offs visible before you make them.", icon: Network, color: "blue" },
@@ -41,7 +42,6 @@ export default function Home() {
   const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSubject, setActiveSubject] = useState("System Design");
-  const [revealed, setRevealed] = useState(false);
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
 
@@ -194,39 +194,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="practice" className="dark-practice relative overflow-hidden bg-[#e3eadf] py-24 sm:py-32">
-          <div className="site-shell grid gap-16 lg:grid-cols-[0.87fr_1.13fr] lg:items-center">
-            <div className="relative order-2 lg:order-1">
-              <div className="absolute -left-8 top-10 h-[85%] w-[84%] border border-[#13221e]/20 sm:-left-14" aria-hidden="true" />
-              <div className="relative min-h-[420px] overflow-hidden bg-[#123d35] p-6 sm:min-h-[500px] sm:p-9">
-                <img src="/manus-storage/explainbytes-flashcards-study-coral_9524b708.png" alt="Abstract tactile developer study cards" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-72 mix-blend-luminosity" />
-                <div className="absolute inset-0 bg-[#123d35]/35" />
-                <div className="relative flex h-full flex-col justify-between">
-                  <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.15em] text-[#f7f5ef]/70"><span>Recall sequence</span><span>02 / 08</span></div>
-                  <div className="border border-[#f7f5ef]/25 bg-[#f7f5ef]/10 p-6 backdrop-blur-sm sm:p-8">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#e66b5b]">System design</p>
-                    <p className="mt-5 font-display text-4xl leading-[0.92] tracking-[-0.05em] text-[#f7f5ef] sm:text-5xl">What does it mean for an operation to be idempotent?</p>
-                    {revealed ? (
-                      <p className="mt-5 border-l-2 border-[#e66b5b] pl-4 font-body text-[15px] leading-6 text-[#f7f5ef]/78">Repeating it has the same intended effect as performing it once—a useful safety property for retries.</p>
-                    ) : (
-                      <button onClick={() => setRevealed(true)} className="mt-7 inline-flex items-center gap-2 border-b border-[#e66b5b] pb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#e66b5b]">Reveal answer <ArrowRight size={15} /></button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="order-1 lg:order-2 lg:pl-8">
-              <p className="eyebrow">02 / Practice with intent</p>
-              <h2 className="section-title mt-5 max-w-lg">Put the idea back in your <em>own hands.</em></h2>
-              <p className="mt-7 max-w-lg font-body text-[17px] leading-7 text-[#13221e]/68">Flash cards designed for active recall: one precise question, a moment to reason, then a concise answer you can carry into the next conversation.</p>
-              <div className="mt-10 grid max-w-xl grid-cols-2 gap-x-8 gap-y-7 border-y border-[#13221e]/15 py-7">
-                <div><p className="font-display text-4xl tracking-[-0.05em]">7</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[#13221e]/55">Study collections</p></div>
-                <div><p className="font-display text-4xl tracking-[-0.05em]">1 min</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[#13221e]/55">To build momentum</p></div>
-              </div>
-              <a href="#practice" onClick={() => setRevealed(false)} className="mt-9 inline-flex items-center gap-3 bg-[#13221e] px-5 py-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#f5f1e8] transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0_#e66b5b] active:scale-[0.97]">Start revising <ArrowRight size={15} /></a>
-            </div>
-          </div>
-        </section>
+        <FlashcardDeck />
 
         <section id="terms" className="dark-terms border-y border-[#13221e]/10 bg-[#f7f5ef] py-24 sm:py-32">
           <div className="site-shell">

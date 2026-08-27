@@ -75,6 +75,21 @@
   .paper-texture { background-image: radial-gradient(rgba(19, 34, 30, .09) .65px, transparent .65px); background-size: 6px 6px; }
   .active-subject-card { position: relative; transition: transform .24s cubic-bezier(.23, 1, .32, 1), background-color .24s cubic-bezier(.23, 1, .32, 1), padding-inline .24s cubic-bezier(.23, 1, .32, 1); }
   .active-subject-icon { transition: transform .24s cubic-bezier(.23, 1, .32, 1), box-shadow .24s cubic-bezier(.23, 1, .32, 1); }
+  .flashcard-studio { background: rgba(247, 245, 239, .72); box-shadow: 10px 10px 0 rgba(19, 34, 30, .08); }
+  .flashcard-stage-wrap { background: #f7f5ef; }
+  .flashcard-canvas { background: #f7f5ef; }
+  .flashcard-canvas::after { content: ""; position: absolute; bottom: 0; left: 0; height: 6px; width: 100%; background: #e66b5b; transform: scaleX(0); transform-origin: left; transition: transform .32s cubic-bezier(.23, 1, .32, 1); }
+  .flashcard-canvas:hover::after, .flashcard-canvas:focus-visible::after { transform: scaleX(1); }
+  .flashcard-nav { display: grid; height: 2.55rem; width: 2.55rem; place-items: center; border: 1px solid rgba(19, 34, 30, .22); background: transparent; color: #13221e; transition: transform .18s cubic-bezier(.23, 1, .32, 1), background .18s cubic-bezier(.23, 1, .32, 1); }
+  .flashcard-nav:hover { transform: translateY(-2px); background: #e66b5b; }
+  .flashcard-nav:active, .flashcard-mark:active { transform: scale(.97); }
+  .flashcard-side { background: rgba(243, 240, 232, .84); }
+  .flashcard-mark { display: inline-flex; min-height: 2.8rem; align-items: center; justify-content: center; gap: .4rem; border: 1px solid rgba(19, 34, 30, .22); padding: .65rem .5rem; font-family: var(--font-mono); font-size: 9px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: #13221e; transition: background .18s cubic-bezier(.23, 1, .32, 1), color .18s cubic-bezier(.23, 1, .32, 1), transform .18s cubic-bezier(.23, 1, .32, 1); }
+  .flashcard-mark:hover, .flashcard-mark.is-selected { background: #13221e; color: #f7f5ef; }
+  .flashcard-review.is-selected { background: #e66b5b; color: #171211; }
+  .flashcard-queue { transition: padding-left .18s cubic-bezier(.23, 1, .32, 1), background .18s cubic-bezier(.23, 1, .32, 1); }
+  .flashcard-queue:hover { padding-left: .45rem; background: rgba(230, 107, 91, .1); }
+  kbd { border: 1px solid rgba(19, 34, 30, .25); padding: .1rem .28rem; font-size: 9px; }
 }
 
 @media (min-width: 640px) { .site-shell { padding-inline: 2rem; } }
@@ -109,6 +124,22 @@
 .dark .dark-library .active-subject-card[data-active="true"] .active-subject-icon svg { color: #171211; }
 .dark .dark-library article { background: #20312b; }
 .dark .dark-practice .relative.min-h-\[420px\] { background: #10231e; }
+.dark .flashcard-section { background: #193129 !important; }
+.dark .flashcard-studio { background: #111916; border-color: rgba(244, 239, 231, .16) !important; box-shadow: 10px 10px 0 rgba(230, 107, 91, .17); }
+.dark .flashcard-deckbar, .dark .flashcard-side { border-color: rgba(244, 239, 231, .16) !important; }
+.dark .flashcard-stage-wrap, .dark .flashcard-side { background: #101714 !important; }
+.dark .flashcard-canvas { background: #1b2622; border-color: rgba(244, 239, 231, .21) !important; }
+.dark .flashcard-canvas:not(.is-flipped) :where(h3, p, span) { color: #f4efe7 !important; }
+.dark .flashcard-canvas:not(.is-flipped) .border { border-color: rgba(244, 239, 231, .28) !important; }
+.dark .flashcard-canvas.is-flipped { background: #0f1513; }
+.dark .flashcard-side :where(p, span, button) { color: #f4efe7 !important; }
+.dark .flashcard-side :where(.border-t, .divide-y) { border-color: rgba(244, 239, 231, .16) !important; }
+.dark .flashcard-side .flashcard-mark { border-color: rgba(244, 239, 231, .23); }
+.dark .flashcard-side .flashcard-mark:hover, .dark .flashcard-side .flashcard-mark.is-selected { background: #e66b5b; color: #171211 !important; }
+.dark .flashcard-side .flashcard-review.is-selected { background: #f4efe7; color: #171211 !important; }
+.dark .flashcard-nav { border-color: rgba(244, 239, 231, .28); color: #f4efe7; }
+.dark .flashcard-nav:hover { background: #e66b5b; color: #171211; }
+.dark .flashcard-section kbd { border-color: rgba(244, 239, 231, .26); }
 .dark .dark-coral-index { background: #e1796b !important; }
 .dark .dark-coral-index :where(p, a, span, li) { color: #171211 !important; }
 .dark .dark-coral-index :where(.divide-y, .border-b) { border-color: rgba(23, 18, 17, .22) !important; }
