@@ -15,3 +15,8 @@
 - [x] Add the low-light coral theme tokens and readable dark-surface variants.
 - [x] Add a persistent, accessible theme toggle to the site header.
 - [x] Verify the dark theme at desktop and mobile breakpoints.
+
+# Dark-Mode Mobile Navigation Fix
+
+- [x] Apply a dark menu surface and high-contrast navigation states on mobile.
+- [x] Verify the expanded mobile menu while dark mode is active.

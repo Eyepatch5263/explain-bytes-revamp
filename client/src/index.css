@@ -87,6 +87,11 @@
 .dark .dark-header > div > a:last-of-type { background: #e66b5b; color: #171211; }
 .dark .dark-header .theme-toggle { border-color: rgba(244, 239, 231, .24); color: #ffb0a5; }
 .dark .dark-header .theme-toggle:hover { border-color: #e66b5b; background: rgba(230, 107, 91, .12); }
+.dark .dark-header > nav { background: #101714 !important; border-color: rgba(244, 239, 231, .16) !important; box-shadow: 0 18px 28px rgba(0, 0, 0, .22); }
+.dark .dark-header > nav a { color: #f4efe7 !important; border-color: rgba(244, 239, 231, .16) !important; }
+.dark .dark-header > nav a:hover { color: #ff9d90 !important; background: rgba(230, 107, 91, .09); }
+.dark .dark-header > nav button { color: #ffb0a5 !important; border-color: rgba(244, 239, 231, .26) !important; background: rgba(244, 239, 231, .03); }
+.dark .dark-header > nav button:hover { border-color: #e66b5b !important; background: rgba(230, 107, 91, .12) !important; }
 .dark .dark-hero { border-color: rgba(244, 239, 231, .12); }
 .dark .dark-hero-image { filter: brightness(.37) saturate(.74) contrast(1.06); }
 .dark .dark-hero-overlay { background: linear-gradient(90deg, rgba(15, 21, 19, .99), rgba(15, 21, 19, .88) 45%, rgba(15, 21, 19, .25)); }
