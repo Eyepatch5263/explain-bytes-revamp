@@ -1,0 +1,215 @@
+---
+title: Distributed Search
+description: Understand how distributed search engines work. Learn inverted indexes, tokenization, sharding, relevance scoring (TF-IDF, BM25), and how Elasticsearch powers full-text search at scale.
+order: 12
+category: Building Blocks
+---
+
+# Distributed Search
+
+Every application eventually needs search — finding products in an e-commerce catalog, searching emails, querying logs, or autocompleting usernames. When the dataset grows beyond what a single machine can handle, you need a **distributed search engine** that splits the index across multiple nodes and queries them in parallel.
+
+---
+
+## 1. Why Not Just Use SQL LIKE?
+
+The naive approach to search is a SQL query:
+
+```sql
+SELECT * FROM products WHERE name LIKE '%wireless headphones%';
+```
+
+This fails at scale for several reasons:
+
+| Problem | Explanation |
+| :--- | :--- |
+| **Full table scan** | `LIKE '%keyword%'` cannot use a B-Tree index. The database scans every row, which is $O(N)$ — unusable on tables with millions of rows. |
+| **No relevance ranking** | SQL returns all matches equally. It cannot rank "Wireless Noise-Cancelling Headphones" higher than "Headphone Stand with Wireless Charger." |
+| **No fuzzy matching** | `LIKE` is exact. A search for "headphnes" (typo) returns zero results. |
+| **No tokenization** | `LIKE` treats the entire string as a pattern. It cannot match "noise cancelling wireless" against "wireless noise-cancelling headphones" because the word order differs. |
+
+Search engines solve all of these problems using an **inverted index**.
+
+---
+
+## 2. The Inverted Index
+
+An inverted index is the core data structure behind every search engine. Instead of mapping documents to words (like a database row), it maps **words to documents**.
+
+### How It's Built
+
+Given these documents:
+
+```
+Doc 1: "The quick brown fox"
+Doc 2: "The brown dog"
+Doc 3: "The quick dog jumps"
+```
+
+The inverted index is:
+
+| Term | Document IDs (Posting List) |
+| :--- | :--- |
+| `the` | [1, 2, 3] |
+| `quick` | [1, 3] |
+| `brown` | [1, 2] |
+| `fox` | [1] |
+| `dog` | [2, 3] |
+| `jumps` | [3] |
+
+To search for "quick dog", the engine:
+1.  Looks up `quick` → [1, 3]
+2.  Looks up `dog` → [2, 3]
+3.  Intersects the sets → [3] (Doc 3 contains both words)
+
+This lookup is $O(1)$ per term (hash map) and $O(K)$ for intersection (where $K$ is the posting list length) — dramatically faster than scanning every document.
+
+### The Indexing Pipeline
+
+Before building the inverted index, raw text goes through a processing pipeline:
+
+```
+Raw text: "The Quick Brown Fox's Jumps!"
+                    │
+                    ▼
+1. Tokenization:    ["The", "Quick", "Brown", "Fox's", "Jumps!"]
+                    │
+                    ▼
+2. Lowercasing:     ["the", "quick", "brown", "fox's", "jumps!"]
+                    │
+                    ▼
+3. Punctuation:     ["the", "quick", "brown", "foxs", "jumps"]
+                    │
+                    ▼
+4. Stop words:      ["quick", "brown", "foxs", "jumps"]
+   (remove "the")
+                    │
+                    ▼
+5. Stemming:        ["quick", "brown", "fox", "jump"]
+   ("foxs"→"fox", "jumps"→"jump")
+```
+
+*   **Tokenization**: Splits text into individual words (tokens).
+*   **Lowercasing**: Normalizes case so "Quick" matches "quick".
+*   **Stop word removal**: Removes common words like "the", "is", "at" that don't add search value.
+*   **Stemming/Lemmatization**: Reduces words to their root form. "running", "runs", "ran" all become "run".
+
+---
+
+## 3. Relevance Scoring: TF-IDF and BM25
+
+When a user searches for "brown fox", multiple documents may match. The search engine must **rank** results by relevance.
+
+### TF-IDF (Term Frequency - Inverse Document Frequency)
+
+TF-IDF scores a term's importance in a document relative to the entire corpus:
+
+<Math block formula="\text{TF-IDF}(t, d) = \text{TF}(t, d) \times \text{IDF}(t)" />
+
+*   **TF (Term Frequency)**: How often does the term appear in this document? A document mentioning "fox" 5 times is more about foxes than one mentioning it once.
+*   **IDF (Inverse Document Frequency)**: How rare is this term across all documents? The word "the" appears everywhere (low IDF = low value). The word "fox" appears in few documents (high IDF = high value).
+
+<Math block formula="\text{IDF}(t) = \log\frac{N}{df(t)}" />
+
+Where $N$ is the total number of documents and $df(t)$ is the number of documents containing term $t$.
+
+### BM25 (Best Matching 25)
+
+BM25 is the modern, improved version of TF-IDF used by Elasticsearch and most production search engines. It adds two refinements:
+
+1.  **Diminishing returns for term frequency**: A document mentioning "fox" 100 times isn't 100x more relevant than one mentioning it once. BM25 uses a saturation function that flattens out after a few occurrences.
+2.  **Document length normalization**: Longer documents naturally contain more term matches. BM25 normalizes scores by document length so short, focused documents aren't penalized.
+
+> [!TIP]
+> You don't need to memorize the BM25 formula for system design interviews. What matters is understanding that search engines rank results by term rarity (IDF) and term frequency (TF), with diminishing returns and length normalization.
+
+---
+
+## 4. Distributing the Search Index
+
+A single machine cannot hold the inverted index for billions of documents. The index must be **sharded** across multiple nodes.
+
+### Sharding Strategies
+
+<Mermaid chart='flowchart TD[nl]
+    Query["Search Query"] --> Coordinator["Coordinator Node"][nl]
+    Coordinator -->|"Scatter"| Shard1["Shard 1[br](Docs 1-1M)"][nl]
+    Coordinator -->|"Scatter"| Shard2["Shard 2[br](Docs 1M-2M)"][nl]
+    Coordinator -->|"Scatter"| Shard3["Shard 3[br](Docs 2M-3M)"][nl]
+    Shard1 -->|"Top 10 results"| Coordinator[nl]
+    Shard2 -->|"Top 10 results"| Coordinator[nl]
+    Shard3 -->|"Top 10 results"| Coordinator[nl]
+    Coordinator -->|"Merge and re-rank"| Results["Final Top 10"]' />
+
+#### Document-Based Sharding (Most Common)
+Each shard holds a complete inverted index for a **subset of documents**. A search query is broadcast to all shards (scatter), each shard returns its top-K results, and the coordinator merges and re-ranks them (gather).
+
+*   **Pros**: Each shard is independent and self-contained. Adding a shard is simple.
+*   **Cons**: Every query must hit every shard, even if only one shard has relevant results.
+
+#### Term-Based Sharding
+Each shard holds the inverted index for a **subset of terms**. A query for "brown fox" sends "brown" to Shard A and "fox" to Shard B. The results are intersected by the coordinator.
+
+*   **Pros**: A query only hits the shards that contain its terms.
+*   **Cons**: Complex coordination. Hot terms (e.g., "the") create hot shards.
+
+### Replication for Availability
+
+Each shard is replicated to multiple nodes. Read queries can be load-balanced across replicas, increasing throughput. If a replica fails, other replicas serve the same shard.
+
+---
+
+## 5. Elasticsearch Architecture
+
+Elasticsearch is the most widely used distributed search engine. Understanding its architecture is essential for system design.
+
+### Core Concepts
+
+| Concept | Description |
+| :--- | :--- |
+| **Index** | A collection of documents with a shared schema (like a database table). Example: `products`, `logs-2024-01`. |
+| **Document** | A single JSON record within an index (like a database row). |
+| **Shard** | A partition of an index. An index with 5 shards distributes its inverted index across 5 nodes. |
+| **Replica** | A copy of a shard for fault tolerance and read scaling. |
+| **Cluster** | A group of nodes that together hold all the data and provide search and indexing capabilities. |
+
+### Write Path
+
+```
+1. Client sends: POST /products/_doc { "name": "Wireless Headphones", ... }
+2. Coordinator node hashes the document ID to determine the target shard.
+3. Document is written to the PRIMARY shard.
+4. Primary shard replicates to REPLICA shards.
+5. Once all replicas acknowledge, the write is confirmed to the client.
+6. A background "refresh" process (default: every 1 second) makes the document searchable.
+```
+
+### Read Path (Search)
+
+```
+1. Client sends: GET /products/_search { "query": { "match": { "name": "headphones" } } }
+2. Coordinator broadcasts the query to one replica of each shard (scatter).
+3. Each shard searches its local inverted index and returns top-K results.
+4. Coordinator merges results from all shards, re-ranks globally, and returns final top-K.
+```
+
+> [!IMPORTANT]
+> Elasticsearch is **near real-time**, not real-time. After indexing a document, there is a ~1 second delay (the "refresh interval") before it appears in search results. This is because Lucene (the underlying library) writes new segments to disk periodically for performance.
+
+---
+
+## 6. When to Use a Search Engine vs. a Database
+
+| Scenario | Use Database | Use Search Engine |
+| :--- | :--- | :--- |
+| Exact key lookup (`WHERE id = 42`) | Yes | No (overkill) |
+| Full-text search ("wireless headphones") | No | Yes |
+| Fuzzy/typo-tolerant search ("headphnes") | No | Yes |
+| Faceted filtering (brand, price range, color) | Possible but slow | Yes (optimized) |
+| Autocomplete / typeahead | Possible | Yes (edge n-grams) |
+| Log analytics (search across TB of logs) | No | Yes (Elasticsearch + Kibana) |
+| Transactional writes (ACID) | Yes | No (eventually consistent) |
+| Primary data store | Yes | No (use as secondary index) |
+
+> [!WARNING]
+> Never use Elasticsearch as your **primary data store**. It does not provide ACID transactions, and data loss is possible during node failures. Always keep the source of truth in a database (PostgreSQL, MySQL) and replicate data to Elasticsearch for search capabilities.

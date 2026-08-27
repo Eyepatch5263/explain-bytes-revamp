@@ -1,0 +1,137 @@
+---
+title: Preliminary System Design Concepts
+description: Essential foundational building blocks of systems, including client-server architecture, API protocols, monoliths, and microservices.
+order: 3
+category: Introduction
+---
+
+## Introduction
+
+Before diving into complex distributed database sharding, consensus algorithms, or designing high-scale platforms like WhatsApp or YouTube, you must master the fundamental building blocks of modern infrastructure. These concepts form the bedrock vocabulary of system architecture.
+
+---
+
+## 1. Client-Server Architecture & The Network Stack
+
+At the heart of almost every digital platform is the **Client-Server model**. It is a distributed application structure that partitions tasks or workloads between the providers of a service (**servers**) and service requesters (**clients**).
+
+<Mermaid chart='flowchart LR
+    Client1["Laptop Client"] -->|Request over HTTP| LB["Server Gateway / Proxy"]
+    Client2["Mobile Client"] -->|Request over HTTP| LB
+    LB -->|Response JSON| Client1
+    LB -->|Response JSON| Client2' />
+
+* **Client**: The user-facing application interface (e.g., a web browser, native mobile app, or IoT sensor firmware) that initiates actions by generating network packets.
+* **Server**: A background runtime machine or container instance listening on a specific network interface port that validates requests, executes application logic, queries data layers, and flushes bytes back over the socket wire.
+
+### Understanding Network Layers (L4 vs. L7)
+In system design interviews, interviewers will evaluate if you understand where your traffic is operating on the networking stack:
+
+* **Layer 4 (Transport Layer - TCP/UDP):** Handles raw data transmission between hosts. It does not look inside the data payload. A Layer 4 load balancer routes traffic based merely on IP addresses and port configurations.
+    * **TCP (Transmission Control Protocol):** Connection-oriented, guarantees packet delivery and ordering via three-way handshakes (SYN -> SYN-ACK -> ACK). Used for databases, HTTP, and file storage.
+    * **UDP (User Datagram Protocol):** Connectionless, fire-and-forget. It does not guarantee delivery or packet order, but eliminates handshake overhead. Used for live media streaming, video calls, and gaming.
+* **Layer 7 (Application Layer - HTTP/WebSockets):** Understands application messages. A Layer 7 load balancer can inspect your cookies, HTTP headers, or JSON values to route a request to a specific microservice.
+
+---
+
+## 2. Stateless vs. Stateful Architectures
+
+How servers manage user session data across distributed application tiers dictates how seamlessly an infrastructure scales under traffic spikes.
+
+<Mermaid chart='flowchart TD
+    subgraph Stateful["Stateful Architecture (Session Stored in Local Server Memory)"]
+        C1["Client"] -->|Request 1: Log in| S1["Server A<br/>(Stores User Session Local Memory)"]
+        C1 -.->|Request 2: View Profile| S2["Server B<br/>(Error: Unauthenticated/401)"]
+    end
+
+    subgraph Stateless["Stateless Architecture (Session Offloaded to Shared Layer)"]
+        C2["Client"] -->|Request 1: Log in| S3["Server A"]
+        C2 -->|Request 2: View Profile| S4["Server B"]
+        S3 -->|Save Token/Session String| DB["Shared Distributed Cache / Cluster Store"]
+        S4 -->|Verify Token/Session String| DB
+    end' />
+
+### Stateless Systems
+A system tier is **stateless** if its application logic instances treat every incoming request as completely isolated. The server instance does not preserve persistent context in its local memory or local block storage disk between connection frames.
+* **How it works:** All necessary client data, authorization credentials (such as JWTs), and context variables are wrapped entirely within the payload of each incoming request.
+* **Pros:** Horizontally scaling is trivial. If an application instance fails or degrades, a health check trigger destroys the container and spins up another replacement instantly. Any server instance behind a load balancer can handle any request.
+* **Cons:** Increases payload sizes and network egress costs since repetitive validation strings and authorization structures cross the network with every call.
+
+### Stateful Systems
+A system tier is **stateful** if servers capture and maintain data history, transactional contexts, or open persistent TCP pipes within their local operating environments.
+* **How it works:** The application retains memory of user activity (e.g., an active WebSocket chat routing map or a multi-player gaming lobby state) on its local system thread.
+* **Pros:** Eliminates lookups to external data stores, resulting in sub-millisecond execution loops for real-time applications.
+* **Cons:** Hard to scale or maintain fault-tolerance. If Server A suffers a hardware fault or crashes, all active client context stored in its RAM is destroyed. To handle scaling, routers must use **sticky sessions** (Consistent Hashing) to map identical users to specific server nodes, running the risk of unbalancing server pools.
+
+---
+
+## 3. Communication & API Protocols
+
+Distributed nodes must align on serialization schemas and connection lifetimes to converse efficiently. The protocol selection heavily impacts payload sizes, serialization speeds, and overall latency characteristics.
+
+| Protocol | Data Format | Communication Style | Pros | Cons | Best For |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **REST** | JSON, XML, Plain Text | Synchronous Requests over HTTP/1.1 | Natively human-readable, simple to cache at edge tiers, universal tooling. | Over-fetching or under-fetching data models; high header text overhead. | Public consumer-facing APIs, CRUD applications. |
+| **GraphQL** | JSON | Declarative Query Schema over HTTP | Eliminates multiple round-trips; clients query exactly what data fields they need. | Complex server-side query parsing; difficult to implement native CDN edge caching. | Dynamic data presentation layer dashboards, mobile integrations. |
+| **gRPC** | Protocol Buffers (Binary) | Remote Procedure Call (RPC) over HTTP/2 | High-performance binary serialization, native client/server code generation, bi-directional streaming. | Hard to manually debug (binary content); poor native browser support without reverse proxy conversion. | Inter-service microservices network meshes, high-throughput internal backends. |
+| **WebSockets**| Binary or Plain Text | Persistent, Full-Duplex over a Single TCP Connection | Real-time, continuous bi-directional updates with minimal overhead per message frame. | Stateful server footprint; connection management requires active heartbeat monitoring. | Chat applications, real-time financial tracking, multiplayer networks. |
+
+---
+
+## 4. Monoliths vs. Microservices
+
+How you set your codebase boundaries and network deployment borders directly determines your platform's operational complexity and scaling friction.
+
+<Mermaid chart='flowchart LR
+    subgraph Monolith["Monolithic Architecture"]
+        MApp["Unified Monolithic App Runtime<br/>(Auth, Payments, Catalog Modules)"] --> MDB[("Single Unified Database")]
+    end
+
+    subgraph Microservices["Microservices Architecture"]
+        Gateway["API Gateway"] --> MS1["Auth Service"]
+        Gateway --> MS2["Payment Service"]
+        Gateway --> MS3["Catalog Service"]
+        MS1 --> DB1[("Auth DB")]
+        MS2 --> DB2[("Payment DB")]
+        MS3 --> DB3[("Catalog DB")]
+    end' />
+
+### Monolithic Architecture
+A monolith compiles all system components (identity, inventory, financial transactions) into a single codebase deployed as a uniform, self-contained process.
+* **When to deploy:** Early-stage product validation, internal tooling pipelines, or small teams operating within a well-defined domain.
+* **Pros:** Zero inter-module network overhead, compile-time type verification across domains, simple CI/CD deployment pipelines, and atomic, single-database ACID guarantees.
+* **Cons:** High risk of single points of failure (a memory leak in the payment engine crashes the authentication system). Codebases can become bloated, scaling out a resource-heavy module requires duplicating the entire application stack across expensive hardware, and build times can skyrocket.
+
+### Microservices Architecture
+Microservices break an application into domain-isolated, autonomous deployment units that own their data models and interface exclusively via network boundaries (HTTP APIs, gRPC, or asynchronous message buses like Kafka).
+* **When to deploy:** Large enterprise organizations, complex distributed infrastructures, or systems processing hundreds of thousands of requests per second across separate feature teams.
+* **Pros:** Independent code deployment, localized fault isolation (a catalog microservice outage doesn't block checkout flows), and absolute flexibility to choose the optimal programming language or database engine for a specific sub-problem.
+* **Cons:** Introduces systemic network latency, distributed logging complexity, difficult tracing requirements, and intricate dual-write data consistency issues (requiring Saga patterns or Outbox patterns to handle failure rollbacks).
+
+---
+
+## 5. Storage Fundamentals: Relational vs. Non-Relational
+
+One of the most defining moments in a system design interview is picking your data tier. You must understand the core distinction before discussing advanced partitioning:
+
+### Relational Databases (SQL)
+Databases like PostgreSQL or MySQL store data in strict, tabular schemas with explicit rows and columns linked by foreign keys.
+* **The Engine Blueprint:** Typically rely on **B-Tree** index architectures optimized for fast read lookups and point queries.
+* **The Guarantee:** Support strict **ACID compliance** (Atomicity, Consistency, Isolation, Durability) globally.
+* **Trade-off:** Scale primarily **vertically** (buying a larger, more expensive machine with more CPU and RAM). Sharding a SQL database horizontally across multiple machines requires significant custom application orchestration logic.
+
+### Non-Relational Databases (NoSQL)
+Databases like Cassandra (Column-family), MongoDB (Document), or Redis (Key-Value) handle unstructured or polymorphic data formats.
+* **The Engine Blueprint:** Write-heavy systems (like Cassandra) often leverage **Log-Structured Merge-trees (LSM-trees)**. They append data sequentially directly to memory buffers (MemTables) and write to immutable append-only disk files (SSTables), providing immense write throughput.
+* **The Guarantee:** Prioritize **BASE properties** (Basically Available, Soft state, Eventual consistency) to maximize availability over absolute consistency across distributed replicas.
+* **Trade-off:** Scale **horizontally** out-of-the-box by partitioning keys across a ring of cheap, commodity hardware nodes. However, they lack native relational JOIN operations and cross-partition transactions.
+
+---
+
+## Key Terms Checklist
+
+* **API Gateway:** A structural reverse proxy that serves as a single entry point for all client requests, executing core common logic such as authentication checks, rate limiting, logging enforcement, and request routing across backend services.
+* **CDN (Content Delivery Network):** A geographically decentralized network of edge servers that caches heavy, static or dynamic media assets (like images, videos, or scripts) close to user devices to bypass core data origin fetches.
+* **IP Address & Port:** The IP address specifies the exact network interface location of a host machine; the port (a numerical value between 0–65535) represents the specific software thread boundary listening for incoming connections on that operating system.
+* **Latency:** The duration of time (measured in milliseconds) required for a packet of data to cross a network path from client origin, hit processing logic, and return an acknowledgment signal.
+* **Throughput:** The net volume of discrete request units or transactions a system cluster can process per unit of time (e.g., Queries Per Second, or QPS).

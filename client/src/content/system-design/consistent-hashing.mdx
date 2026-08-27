@@ -1,0 +1,273 @@
+---
+title: Consistent Hashing
+description: Understand consistent hashing for distributed systems. Learn how the hash ring works, virtual nodes, data replication, and why it powers databases like Cassandra, DynamoDB, and CDN routing.
+order: 11
+category: Building Blocks
+---
+
+# Consistent Hashing
+
+When you distribute data across multiple servers (e.g., sharding a database or routing requests to cache nodes), you need a way to decide which server handles which piece of data. The naive approach — `server = hash(key) % N` — fails catastrophically when you add or remove servers. **Consistent Hashing** solves this problem elegantly.
+
+---
+
+## 1. The Problem with Simple Hashing
+
+### The Naive Approach: Modulo Hashing
+
+Suppose you have 4 cache servers and you route requests using:
+
+```
+server_index = hash(key) % 4
+```
+
+| Key | hash(key) | hash(key) % 4 | Server |
+| :--- | :--- | :--- | :--- |
+| `user:alice` | 78 | 2 | Server 2 |
+| `user:bob` | 31 | 3 | Server 3 |
+| `user:charlie` | 52 | 0 | Server 0 |
+| `user:diana` | 19 | 3 | Server 3 |
+
+This works perfectly — until a server dies or you add a new one.
+
+### What Happens When You Add a Server (Modulo)?
+
+If you add a 5th server, the formula changes to `hash(key) % 5`:
+
+| Key | hash(key) | Old: % 4 | New: % 5 | Moved? |
+| :--- | :--- | :--- | :--- | :--- |
+| `user:alice` | 78 | 2 | 3 | Yes |
+| `user:bob` | 31 | 3 | 1 | Yes |
+| `user:charlie` | 52 | 0 | 2 | Yes |
+| `user:diana` | 19 | 3 | 4 | Yes |
+
+**Every single key moved to a different server.** In a cache system, this means every cached value becomes a cache miss simultaneously — causing a **cache avalanche** that crushes your database. In a sharded database, it means massive data migration across all nodes.
+
+The problem is clear: adding or removing 1 server causes $\sim N/N$ (nearly 100%) of all keys to be reassigned. We need a scheme where adding a server only moves $\sim K/N$ keys (where $K$ is the total number of keys and $N$ is the number of servers).
+
+---
+
+## 2. The Hash Ring
+
+Consistent hashing arranges both **servers** and **keys** on a circular number line (the "Hash Ring"). The ring represents the full output range of a hash function (e.g., 0 to $2^{32} - 1$).
+
+### How It Works
+
+1.  **Hash each server** onto the ring using its identifier (e.g., IP address or hostname).
+2.  **Hash each key** onto the ring.
+3.  To find which server handles a key, **walk clockwise** from the key's position on the ring until you reach the first server.
+
+<Mermaid chart='flowchart TD[nl]
+    subgraph Ring["Hash Ring (0 to 2^32)"][nl]
+        A["Server A[br](Position: 50)"] --- B["Server B[br](Position: 150)"][nl]
+        B --- C["Server C[br](Position: 250)"][nl]
+        C --- A[nl]
+    end[nl]
+[nl]
+    K1["Key 1 (Hash: 70)"] -->|"Walk clockwise"| B[nl]
+    K2["Key 2 (Hash: 200)"] -->|"Walk clockwise"| C[nl]
+    K3["Key 3 (Hash: 300)"] -->|"Walk clockwise"| A' />
+
+In this example:
+*   **Key 1** (position 70) walks clockwise and hits **Server B** (position 150).
+*   **Key 2** (position 200) walks clockwise and hits **Server C** (position 250).
+*   **Key 3** (position 300) wraps around the ring and hits **Server A** (position 50).
+
+### What Happens When a Server Is Added to the Ring?
+
+If we add **Server D** at position 180 on the ring:
+
+*   Keys between positions 150 and 180 now map to **Server D** instead of **Server C**.
+*   All other keys remain on their existing servers.
+
+Only the keys in that one arc are reassigned — approximately $K/N$ keys. Adding one server out of $N$ servers moves roughly $1/N$ of the total keys.
+
+### What Happens When a Server Is Removed?
+
+If **Server B** (position 150) crashes:
+
+*   Keys that were on Server B are now owned by the next server clockwise — **Server C** (position 250).
+*   All other keys are unaffected.
+
+Again, only $\sim K/N$ keys need to move.
+
+---
+
+## 3. The Hot-Spot Problem and Virtual Nodes
+
+### The Problem
+
+With only a few physical servers on the ring, the distribution of keys is often **uneven**. If Server A is at position 50 and Server B is at position 250, Server A owns a much larger arc (from 250 to 50, wrapping around) than Server B (from 50 to 250). This creates **hot spots** — some servers handle far more data and traffic than others.
+
+```
+Real scenario with 3 servers on a 360-degree ring:
+
+Server A at 10   → Owns arc: 300 to 10  (70 degrees)
+Server B at 100  → Owns arc: 10 to 100  (90 degrees)
+Server C at 300  → Owns arc: 100 to 300 (200 degrees)  ← HOT SPOT!
+
+Server C handles 55% of all keys while A handles only 19%.
+```
+
+### The Solution: Virtual Nodes (Vnodes)
+
+Instead of placing each physical server at one position on the ring, we place it at **many positions** using different hash functions or suffixes. Each position is called a **Virtual Node (Vnode)**.
+
+```
+Physical Server A → Virtual Nodes: A-1 (at 30), A-2 (at 120), A-3 (at 210), A-4 (at 310)
+Physical Server B → Virtual Nodes: B-1 (at 70), B-2 (at 160), B-3 (at 250), B-4 (at 340)
+Physical Server C → Virtual Nodes: C-1 (at 15), C-2 (at 90),  C-3 (at 180), C-4 (at 270)
+```
+
+With 4 virtual nodes per server, there are now 12 points on the ring instead of 3. The arcs become much more evenly distributed.
+
+**Key Benefits of Virtual Nodes:**
+
+1.  **Even load distribution**: With enough virtual nodes (typically 100-256 per server in production), the variance in load across servers drops significantly.
+2.  **Heterogeneous hardware**: A more powerful server can be assigned more virtual nodes (e.g., Server A with 256 vnodes vs. Server B with 128 vnodes), so it handles proportionally more keys.
+3.  **Smoother rebalancing**: When a server is added or removed, its virtual nodes are scattered across the ring, so the redistribution of keys is spread evenly among remaining servers rather than burdening a single neighbor.
+
+> [!IMPORTANT]
+> In production systems like Apache Cassandra, each node is assigned **256 virtual nodes** by default. This provides excellent load balancing with minimal overhead.
+
+---
+
+## 4. Replication with Consistent Hashing
+
+In distributed databases, data must be replicated to multiple nodes for fault tolerance. Consistent hashing provides a natural replication strategy:
+
+**Replicate to the next $N$ clockwise nodes on the ring**, where $N$ is the **Replication Factor**.
+
+<Mermaid chart='flowchart TD[nl]
+    subgraph Ring["Hash Ring with Replication Factor = 3"][nl]
+        SA["Server A"] --- SB["Server B"][nl]
+        SB --- SC["Server C"][nl]
+        SC --- SD["Server D"][nl]
+        SD --- SA[nl]
+    end[nl]
+[nl]
+    Key["Key X"] -->|Primary| SB[nl]
+    Key -->|Replica 1| SC[nl]
+    Key -->|Replica 2| SD' />
+
+For **Key X** that maps to **Server B**:
+*   **Server B** holds the primary copy.
+*   **Server C** (next clockwise) holds Replica 1.
+*   **Server D** (next clockwise after C) holds Replica 2.
+
+If Server B crashes, the system can still serve Key X from Server C or Server D.
+
+### Rack-Aware Replication
+
+A common optimization is to ensure replicas are placed on servers in **different physical racks** or **availability zones**. If all 3 replicas end up on servers in the same rack, a single power failure destroys all copies.
+
+When walking clockwise on the ring, skip virtual nodes that belong to the same physical rack until you find a node in a different rack.
+
+---
+
+## 5. Consistent Hashing in Practice
+
+### Where It's Used
+
+| System | How It Uses Consistent Hashing |
+| :--- | :--- |
+| **Apache Cassandra** | Partitions data across a ring of nodes. Each node owns a range of token values. Uses virtual nodes (default: 256 per node). |
+| **Amazon DynamoDB** | Routes key-value pairs to storage nodes. Uses consistent hashing with virtual nodes for even distribution. |
+| **Memcached** | Client libraries (e.g., libmemcached) use consistent hashing to route cache keys to the correct server, minimizing cache invalidation on node changes. |
+| **CDNs (Akamai, Cloudflare)** | Routes user requests to the nearest or least-loaded edge server. Adding a new edge server only moves a fraction of the traffic. |
+| **Load Balancers (NGINX)** | The `consistent_hash` directive routes requests to upstream servers using a hash of the client IP or request URL. |
+
+### How Cassandra Uses the Hash Ring
+
+In Cassandra, every piece of data is identified by a **partition key** (e.g., `user_id`). The partition key is hashed using the Murmur3 hash function, producing a **token** (a 64-bit integer). Each node in the cluster is assigned a range of tokens (its "token range").
+
+```
+Cluster with 4 nodes, token range: -2^63 to 2^63
+
+Node A: tokens  -2^63 to -2^62    (owns 25% of the ring)
+Node B: tokens  -2^62 to 0        (owns 25% of the ring)
+Node C: tokens  0     to 2^62     (owns 25% of the ring)
+Node D: tokens  2^62  to 2^63     (owns 25% of the ring)
+
+INSERT INTO users (user_id, name) VALUES ('alice', 'Alice');
+  → hash('alice') = token 1234567890
+  → Token 1234567890 falls in Node C's range
+  → Data is written to Node C (and replicated to D and A with RF=3)
+```
+
+---
+
+## 6. Implementation: A Simple Consistent Hash Ring
+
+```typescript
+import { createHash } from 'crypto';
+
+class ConsistentHashRing {
+    private ring: Map<number, string> = new Map();
+    private sortedKeys: number[] = [];
+
+    constructor(
+        private virtualNodes: number = 150 // Vnodes per server
+    ) {}
+
+    // Hash a string to a position on the ring (0 to 2^32)
+    private hash(key: string): number {
+        const digest = createHash('md5').update(key).digest();
+        return digest.readUInt32BE(0);
+    }
+
+    // Add a server to the ring
+    addServer(server: string): void {
+        for (let i = 0; i < this.virtualNodes; i++) {
+            const virtualKey = `${server}:vnode${i}`;
+            const position = this.hash(virtualKey);
+            this.ring.set(position, server);
+            this.sortedKeys.push(position);
+        }
+        this.sortedKeys.sort((a, b) => a - b);
+    }
+
+    // Remove a server from the ring
+    removeServer(server: string): void {
+        for (let i = 0; i < this.virtualNodes; i++) {
+            const virtualKey = `${server}:vnode${i}`;
+            const position = this.hash(virtualKey);
+            this.ring.delete(position);
+        }
+        this.sortedKeys = this.sortedKeys.filter(k => this.ring.has(k));
+    }
+
+    // Find which server handles a given key
+    getServer(key: string): string | undefined {
+        if (this.sortedKeys.length === 0) return undefined;
+
+        const position = this.hash(key);
+
+        // Binary search for the first server position >= key position
+        for (const serverPos of this.sortedKeys) {
+            if (serverPos >= position) {
+                return this.ring.get(serverPos);
+            }
+        }
+
+        // Wrap around: return the first server on the ring
+        return this.ring.get(this.sortedKeys[0]);
+    }
+}
+
+// Usage:
+const ring = new ConsistentHashRing(150);
+ring.addServer("cache-server-1");
+ring.addServer("cache-server-2");
+ring.addServer("cache-server-3");
+
+console.log(ring.getServer("user:alice"));   // → "cache-server-2"
+console.log(ring.getServer("user:bob"));     // → "cache-server-1"
+
+// Adding a new server only moves ~1/N of the keys
+ring.addServer("cache-server-4");
+console.log(ring.getServer("user:alice"));   // → still "cache-server-2" (likely unchanged)
+```
+
+> [!TIP]
+> In a system design interview, you don't need to implement consistent hashing from scratch. What matters is: (1) explaining why naive modulo hashing fails, (2) describing the hash ring concept, (3) mentioning virtual nodes for load balancing, and (4) knowing that it's used in Cassandra, DynamoDB, and CDN routing.

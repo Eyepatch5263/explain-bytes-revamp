@@ -1,0 +1,305 @@
+---
+title: Microservices Architecture
+description: Understand microservices architecture patterns. Learn service decomposition, inter-service communication (sync vs async), sagas, CQRS, event sourcing, and the trade-offs vs monoliths.
+order: 13
+category: Design Patterns
+---
+
+# Microservices Architecture
+
+A **microservice** is an independently deployable, loosely coupled service that handles a single business capability. Instead of one large application (monolith) that does everything, a microservice architecture splits the system into many small services — each with its own database, its own codebase, and its own deployment pipeline.
+
+---
+
+## 1. Monolith vs. Microservices
+
+Before understanding microservices, you need to understand what they replaced and why.
+
+### The Monolith
+
+A monolithic application bundles all functionality — user management, payments, inventory, notifications — into a single deployable unit.
+
+```
+┌─────────────────────────────────────────────────┐
+│               Monolithic Application             │
+│                                                  │
+│   ┌──────────┐ ┌──────────┐ ┌───────────────┐   │
+│   │  Users   │ │ Payments │ │  Inventory    │   │
+│   │  Module  │ │  Module  │ │   Module      │   │
+│   └──────────┘ └──────────┘ └───────────────┘   │
+│   ┌──────────┐ ┌──────────┐ ┌───────────────┐   │
+│   │  Orders  │ │  Email   │ │  Analytics    │   │
+│   │  Module  │ │  Module  │ │   Module      │   │
+│   └──────────┘ └──────────┘ └───────────────┘   │
+│                                                  │
+│            Shared Database (PostgreSQL)           │
+└─────────────────────────────────────────────────┘
+```
+
+**When Monoliths Work Well:**
+*   Small teams (< 10 engineers).
+*   Early-stage startups that need to iterate quickly.
+*   Simple domain logic with few distinct bounded contexts.
+
+**When Monoliths Break Down:**
+*   A small bug in the Payments module requires redeploying the entire application (including Users, Inventory, etc.).
+*   Two teams working on different features step on each other because they modify the same codebase.
+*   The shared database becomes a bottleneck — one expensive analytics query slows down the checkout flow.
+*   Scaling is all-or-nothing: you cannot scale only the Payments service during a flash sale; you must scale the entire monolith.
+
+---
+
+### The Microservice Approach
+
+<Mermaid chart='flowchart TD[nl]
+    Gateway["API Gateway"] --> UserSvc["User Service[br](Node.js + MongoDB)"][nl]
+    Gateway --> OrderSvc["Order Service[br](Go + PostgreSQL)"][nl]
+    Gateway --> PaymentSvc["Payment Service[br](Java + MySQL)"][nl]
+    Gateway --> NotifSvc["Notification Service[br](Python + Redis)"][nl]
+    OrderSvc -->|Event: OrderCreated| MQ["Message Queue (Kafka)"][nl]
+    MQ --> PaymentSvc[nl]
+    MQ --> NotifSvc' />
+
+Each service:
+*   **Owns its data**: User Service has its own MongoDB. Order Service has its own PostgreSQL. No shared databases.
+*   **Is independently deployable**: A fix to Payments can be deployed without touching Users or Orders.
+*   **Can use different technologies**: The User Service is in Node.js, the Order Service is in Go. Each team picks the best tool for their problem.
+*   **Scales independently**: During a flash sale, you scale only the Payment and Order services.
+
+---
+
+## 2. How Microservices Communicate
+
+When functionality is split across services, they need to talk to each other. There are two fundamental patterns:
+
+### Synchronous Communication (Request-Response)
+
+One service directly calls another and **waits** for the response.
+
+<Mermaid chart='sequenceDiagram[nl]
+    participant Client[nl]
+    participant OrderSvc as Order Service[nl]
+    participant InventorySvc as Inventory Service[nl]
+    participant PaymentSvc as Payment Service[nl]
+[nl]
+    Client->>OrderSvc: POST /orders (Create Order)[nl]
+    OrderSvc->>InventorySvc: GET /inventory/item/42 (Check Stock)[nl]
+    InventorySvc-->>OrderSvc: 200 OK (In Stock)[nl]
+    OrderSvc->>PaymentSvc: POST /payments (Charge Card)[nl]
+    PaymentSvc-->>OrderSvc: 200 OK (Payment Success)[nl]
+    OrderSvc-->>Client: 201 Created (Order Confirmed)' />
+
+**Protocols**: HTTP/REST, gRPC.
+
+**Pros:**
+*   Simple to understand and debug.
+*   Immediate consistency — the caller knows the result right away.
+
+**Cons:**
+*   **Tight coupling**: If Inventory Service is down, Order Service cannot complete the request. One slow service cascades latency to all callers.
+*   **Chain of failures**: A → B → C → D. If D is slow, A, B, and C all wait and their threads are blocked.
+
+---
+
+### Asynchronous Communication (Event-Driven)
+
+One service publishes an **event** to a message broker. Other services consume events when they are ready, without the producer waiting.
+
+<Mermaid chart='sequenceDiagram[nl]
+    participant Client[nl]
+    participant OrderSvc as Order Service[nl]
+    participant Kafka as Message Broker (Kafka)[nl]
+    participant PaymentSvc as Payment Service[nl]
+    participant NotifSvc as Notification Service[nl]
+[nl]
+    Client->>OrderSvc: POST /orders (Create Order)[nl]
+    OrderSvc-->>Client: 202 Accepted (Order Received)[nl]
+    OrderSvc->>Kafka: Publish: OrderCreated Event[nl]
+    Kafka->>PaymentSvc: Consume: OrderCreated[nl]
+    Kafka->>NotifSvc: Consume: OrderCreated[nl]
+    PaymentSvc->>Kafka: Publish: PaymentProcessed Event[nl]
+    Kafka->>NotifSvc: Consume: PaymentProcessed' />
+
+**Protocols**: Message queues (Kafka, RabbitMQ, SQS).
+
+**Pros:**
+*   **Loose coupling**: If Notification Service is down, Order Service is completely unaffected. Events queue up and are processed when the service recovers.
+*   **Better resilience**: No cascading failures.
+*   **Independent scaling**: Each consumer scales independently based on its own throughput needs.
+
+**Cons:**
+*   **Eventual consistency**: The client gets `202 Accepted` immediately but the payment hasn't actually been processed yet.
+*   **Harder to debug**: Tracing a request across multiple async events is more complex than following a synchronous call chain.
+
+---
+
+### When to Use Which
+
+| Scenario | Pattern | Reason |
+| :--- | :--- | :--- |
+| Client needs an immediate answer | Synchronous | User expects to see "Order confirmed" or "Payment failed" instantly. |
+| Fire-and-forget operations | Asynchronous | Sending a confirmation email doesn't need to block checkout. |
+| Multiple services react to one event | Asynchronous | One `OrderCreated` event triggers payment, inventory, and email — all independently. |
+| Low-latency internal lookups | Synchronous (gRPC) | Checking user permissions before serving a page needs a fast, direct call. |
+
+---
+
+## 3. The Saga Pattern: Distributed Transactions
+
+In a monolith, you can wrap multiple operations in a single database transaction:
+
+```sql
+BEGIN TRANSACTION;
+    UPDATE inventory SET stock = stock - 1 WHERE item_id = 42;
+    INSERT INTO orders (user_id, item_id) VALUES (1, 42);
+    INSERT INTO payments (order_id, amount) VALUES (101, 29.99);
+COMMIT;
+```
+
+If any step fails, the entire transaction rolls back. All-or-nothing.
+
+In microservices, each service has its own database. You **cannot** use a single transaction across multiple databases. The **Saga Pattern** solves this by breaking a distributed transaction into a sequence of local transactions, each with a compensating action (undo) if a later step fails.
+
+### Choreography-Based Saga
+
+Each service listens for events and decides what to do next. No central coordinator.
+
+```
+1. Order Service    → Creates order (status: PENDING)
+                    → Publishes: OrderCreated
+
+2. Inventory Service → Receives OrderCreated
+                     → Reserves stock
+                     → Publishes: StockReserved
+
+3. Payment Service  → Receives StockReserved
+                    → Charges credit card
+                    → Publishes: PaymentSucceeded
+
+4. Order Service    → Receives PaymentSucceeded
+                    → Updates order (status: CONFIRMED)
+```
+
+**If Payment fails:**
+```
+3. Payment Service  → Charges credit card → FAILS
+                    → Publishes: PaymentFailed
+
+2. Inventory Service → Receives PaymentFailed
+                     → Releases reserved stock (COMPENSATING ACTION)
+
+1. Order Service    → Receives PaymentFailed
+                    → Updates order (status: CANCELLED)
+```
+
+**Pros:** Simple for small workflows. No single coordinator to fail.
+**Cons:** Hard to manage with many services. The business logic of "what happens next" is scattered across services.
+
+### Orchestration-Based Saga
+
+A central **Saga Orchestrator** coordinates the workflow. It tells each service what to do and handles failures.
+
+<Mermaid chart='flowchart TD[nl]
+    Orch["Saga Orchestrator"] -->|"1. Reserve Stock"| Inventory["Inventory Service"][nl]
+    Inventory -->|"Stock Reserved"| Orch[nl]
+    Orch -->|"2. Charge Payment"| Payment["Payment Service"][nl]
+    Payment -->|"Payment Success"| Orch[nl]
+    Orch -->|"3. Confirm Order"| Order["Order Service"][nl]
+    Payment -->|"Payment Failed"| Orch[nl]
+    Orch -->|"Compensate: Release Stock"| Inventory' />
+
+**Pros:** Centralized logic. Easier to reason about, test, and debug complex workflows.
+**Cons:** The orchestrator is a single point of failure and must be made highly available.
+
+---
+
+## 4. CQRS (Command Query Responsibility Segregation)
+
+In many systems, the read and write workloads have very different characteristics. A social media platform might have 100 read queries for every 1 write. CQRS splits the system into two separate models:
+
+*   **Command Model (Write Side)**: Handles create, update, and delete operations. Optimized for write throughput and data integrity.
+*   **Query Model (Read Side)**: Handles read operations. Optimized for fast, complex queries. Often uses denormalized data or materialized views.
+
+<Mermaid chart='flowchart LR[nl]
+    Client["Client"] --> CommandAPI["Command API[br](Write)"][nl]
+    Client --> QueryAPI["Query API[br](Read)"][nl]
+    CommandAPI --> WriteDB[("Write Database[br](PostgreSQL - Normalized)")]  [nl]
+    WriteDB -->|"Sync via events"| ReadDB[("Read Database[br](Elasticsearch - Denormalized)")][nl]
+    QueryAPI --> ReadDB' />
+
+### When to Use CQRS
+
+*   **High read-to-write ratio**: Social feeds, product catalogs, dashboards.
+*   **Complex queries**: When reads require joins across multiple tables that slow down writes.
+*   **Different scaling needs**: You need 10 read replicas but only 1 write master.
+
+### When NOT to Use CQRS
+
+*   Simple CRUD applications where reads and writes are similar.
+*   When the complexity of maintaining two models and synchronizing them outweighs the benefits.
+
+> [!WARNING]
+> CQRS introduces **eventual consistency** between the write and read models. After a write, there is a brief delay before the read model is updated. Your UI must handle this gracefully (e.g., showing "Your post is being published...").
+
+---
+
+## 5. Event Sourcing
+
+Instead of storing the **current state** of an entity (e.g., `balance = 150`), Event Sourcing stores every **event** that led to that state:
+
+```
+Event Store for Account #42:
+┌──────────────────────────────────────────────┐
+│ Event 1: AccountCreated    { balance: 0   }  │
+│ Event 2: MoneyDeposited    { amount: 200  }  │
+│ Event 3: MoneyWithdrawn    { amount: 50   }  │
+│ Event 4: MoneyDeposited    { amount: 100  }  │
+└──────────────────────────────────────────────┘
+
+Current state = Replay all events:
+  0 + 200 - 50 + 100 = 250
+```
+
+### Why Event Sourcing?
+
+1.  **Complete audit trail**: Every change is recorded. You can answer "What was the balance at 3:00 PM yesterday?" by replaying events up to that timestamp.
+2.  **Temporal queries**: Reconstruct the state of any entity at any point in time.
+3.  **Event replay**: If you discover a bug in your processing logic, fix it and replay all events to recalculate the correct state.
+4.  **Natural fit with CQRS**: Events from the write side feed into projections that build the read model.
+
+### Trade-offs
+
+*   **Storage**: Storing every event grows unbounded. Use **snapshots** (periodically save the current state) to avoid replaying millions of events on every read.
+*   **Complexity**: Querying the current state requires replaying events or maintaining projections.
+*   **Event schema evolution**: Changing the format of events over time is difficult. You must support reading both old and new event formats.
+
+> [!TIP]
+> Event Sourcing is powerful but adds significant complexity. Use it when you have a genuine need for audit trails, temporal queries, or event replay (e.g., financial systems, collaborative editors). Don't use it for a simple blog or CRUD app.
+
+---
+
+## 6. The Strangler Fig Pattern: Migrating from Monolith to Microservices
+
+You almost never rewrite a monolith from scratch. Instead, you incrementally extract functionality into microservices while the monolith continues running — like a strangler fig tree that slowly grows around and replaces its host tree.
+
+```
+Phase 1: All traffic goes to the monolith.
+┌──────────────────────────────┐
+│    Monolith (all features)   │
+└──────────────────────────────┘
+
+Phase 2: Extract one feature. Route its traffic to the new service.
+┌──────────────────────────────┐     ┌─────────────────┐
+│  Monolith (minus Payments)   │     │ Payment Service  │
+└──────────────────────────────┘     └─────────────────┘
+          API Gateway routes /api/payments → Payment Service
+          API Gateway routes everything else → Monolith
+
+Phase 3: Continue extracting features until the monolith is empty.
+┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+│  Users   │ │ Payments │ │  Orders  │ │  Email   │
+│ Service  │ │ Service  │ │ Service  │ │ Service  │
+└──────────┘ └──────────┘ └──────────┘ └──────────┘
+```
+
+This approach minimizes risk because the monolith remains functional throughout the migration. Each extracted service can be validated independently before cutting over traffic.

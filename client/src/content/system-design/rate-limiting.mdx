@@ -1,0 +1,326 @@
+---
+title: Rate Limiting
+description: Protect your systems from abuse with rate limiting. Learn the Token Bucket, Sliding Window, and Fixed Window algorithms, distributed rate limiting with Redis, and how to handle throttled clients.
+order: 10
+category: Building Blocks
+---
+
+# Rate Limiting
+
+**Rate limiting** is a defensive mechanism that controls how many requests a client (user, IP address, or API key) can make to your system within a given time window. Without it, a single misbehaving client — whether an attacker or a buggy script — can consume all your server resources, crashing the service for everyone.
+
+Think of it like a highway toll booth. Even if a million cars want to enter the highway at once, the toll booth only allows a fixed number through per minute. The rest must wait in line. Rate limiting is your system's toll booth.
+
+---
+
+## 1. Why Rate Limiting Matters
+
+| Threat | Without Rate Limiting | With Rate Limiting |
+| :--- | :--- | :--- |
+| **DDoS Attacks** | Millions of requests flood servers, causing downtime. | Excess requests are rejected with `429 Too Many Requests`. |
+| **Brute Force Login** | Attacker tries 100,000 password combinations per second. | After 5 failed attempts, the account is locked for 15 minutes. |
+| **API Abuse** | A buggy client polls your API 1,000 times per second. | Client is throttled to 100 requests per minute. |
+| **Cost Control** | A single tenant on a shared cloud platform consumes all resources. | Each tenant gets a fair share of server capacity. |
+
+---
+
+## 2. Where to Place the Rate Limiter
+
+<Mermaid chart='flowchart LR[nl]
+    Client["Client"] --> Gateway["API Gateway / Load Balancer[br](Rate Limiter Here)"][nl]
+    Gateway --> App1["App Server 1"][nl]
+    Gateway --> App2["App Server 2"][nl]
+    Gateway --> App3["App Server 3"]' />
+
+The rate limiter is typically placed at the **edge** of your system — in the API Gateway or Load Balancer — before requests reach your application servers. This ensures malicious traffic is blocked as early as possible, saving backend resources.
+
+*   **API Gateway (Recommended)**: Services like AWS API Gateway, Kong, and NGINX have built-in rate limiting. This is the standard production approach.
+*   **Application Middleware**: Rate limiting logic inside your application code (e.g., Express middleware). Simpler for small projects, but doesn't scale well because each server instance needs shared state.
+*   **Client-Side (Complementary)**: Well-behaved clients implement their own rate limiting (e.g., exponential backoff on `429` responses). This reduces unnecessary network traffic but cannot be relied upon for security.
+
+---
+
+## 3. Rate Limiting Algorithms
+
+### Algorithm 1: Token Bucket
+
+The Token Bucket is the most widely used rate-limiting algorithm in production. It is used by AWS, Stripe, and most API gateways.
+
+**How it Works:**
+1.  Imagine a bucket that holds a maximum of `N` tokens (the **bucket capacity**).
+2.  Tokens are added to the bucket at a fixed rate (the **refill rate**), e.g., 10 tokens per second.
+3.  Each incoming request takes one token from the bucket.
+4.  If the bucket has tokens, the request is allowed.
+5.  If the bucket is empty, the request is rejected (or queued).
+
+<Mermaid chart='flowchart TD[nl]
+    Refill["Token Refill[br](10 tokens/sec)"] --> Bucket["Token Bucket[br](Max: 50 tokens)"][nl]
+    Request["Incoming Request"] --> Check{"Tokens > 0?"}[nl]
+    Check -->|Yes| Allow["Allow Request[br](Remove 1 token)"][nl]
+    Check -->|No| Reject["Reject: 429 Too Many Requests"]' />
+
+**Why it's popular:** The Token Bucket naturally handles **bursts**. If a user has been idle, their bucket is full, so they can make a burst of requests. Over time, the refill rate enforces the average limit.
+
+```typescript
+class TokenBucket {
+    private tokens: number;
+    private lastRefillTime: number;
+
+    constructor(
+        private maxTokens: number,    // Bucket capacity (e.g., 50)
+        private refillRate: number     // Tokens added per second (e.g., 10)
+    ) {
+        this.tokens = maxTokens;
+        this.lastRefillTime = Date.now();
+    }
+
+    allowRequest(): boolean {
+        this.refill();
+        if (this.tokens > 0) {
+            this.tokens -= 1;
+            return true;  // Request allowed
+        }
+        return false;     // Rate limited
+    }
+
+    private refill(): void {
+        const now = Date.now();
+        const elapsed = (now - this.lastRefillTime) / 1000; // seconds
+        const tokensToAdd = elapsed * this.refillRate;
+        this.tokens = Math.min(this.maxTokens, this.tokens + tokensToAdd);
+        this.lastRefillTime = now;
+    }
+}
+```
+
+---
+
+### Algorithm 2: Fixed Window Counter
+
+The simplest rate-limiting algorithm. It divides time into fixed-size windows (e.g., 1-minute intervals) and counts requests in each window.
+
+**How it Works:**
+1.  Divide time into windows: `[00:00 - 00:59]`, `[01:00 - 01:59]`, etc.
+2.  Maintain a counter for each window.
+3.  When a request arrives, increment the counter for the current window.
+4.  If the counter exceeds the limit, reject the request.
+5.  When a new window starts, the counter resets to 0.
+
+```
+Window:  [12:00:00 - 12:00:59]  |  [12:01:00 - 12:01:59]
+Limit:   100 requests per minute
+Counter:    87                   |        0 (reset)
+```
+
+**Pros:**
+*   Extremely simple. Only requires storing a single counter and a timestamp.
+*   Very low memory: one counter per client per window.
+
+**Cons: The Boundary Problem:**
+
+The critical flaw of fixed windows is that a client can make **double the allowed requests** at the boundary between two windows:
+
+```
+Limit: 100 requests per minute
+
+Window 1: [12:00:00 - 12:00:59]
+  └── User sends 0 requests for the first 59 seconds.
+  └── User sends 100 requests at 12:00:55 → All allowed
+
+Window 2: [12:01:00 - 12:01:59]
+  └── User sends 100 requests at 12:01:00 → All allowed
+
+Result: 200 requests in a 5-second span! The "100 per minute" limit is violated.
+```
+
+---
+
+### Algorithm 3: Sliding Window Log
+
+The Sliding Window Log fixes the boundary problem by tracking the exact timestamp of every single request.
+
+**How it Works:**
+1.  Store every request's timestamp in a sorted list (e.g., a Redis Sorted Set).
+2.  When a new request arrives:
+    a. Remove all timestamps older than `now - windowSize`.
+    b. Count the remaining timestamps.
+    c. If the count is below the limit, allow the request and add its timestamp.
+    d. Otherwise, reject it.
+
+```
+Window size: 60 seconds
+Limit: 5 requests
+
+Sorted Log at 12:01:30:
+  [12:00:45, 12:01:00, 12:01:10, 12:01:20, 12:01:25]
+  └── 5 entries in the last 60 seconds → REJECT next request
+```
+
+**Pros:**
+*   Perfectly accurate. No boundary problem.
+
+**Cons:**
+*   **Memory-intensive**: Stores every timestamp for every client. If a client makes 10,000 requests per minute, you store 10,000 timestamps per client.
+
+---
+
+### Algorithm 4: Sliding Window Counter (Best of Both Worlds)
+
+The Sliding Window Counter is a hybrid approach that combines the low memory of Fixed Windows with the accuracy of Sliding Windows.
+
+**How it Works:**
+1.  Maintain counters for the **current window** and the **previous window**.
+2.  Calculate a weighted count based on how far into the current window we are.
+
+```
+Limit: 100 requests per minute
+
+Previous window [12:00 - 12:01]: 84 requests
+Current window  [12:01 - 12:02]: 36 requests (so far)
+
+Current time: 12:01:15 (25% into the current window)
+
+Estimated count = (previous * overlap%) + current
+                = (84 * 0.75) + 36
+                = 63 + 36
+                = 99   →  Under limit → ALLOW
+```
+
+The `overlap%` represents how much of the previous window is still relevant. At `12:01:15`, we are 15 seconds (25%) into the current window, meaning 75% of the previous window's traffic is still "within range."
+
+**Pros:**
+*   Low memory (only two counters per client).
+*   Smooths out the boundary problem effectively.
+
+**Cons:**
+*   An approximation — not perfectly accurate, but close enough for production use. This is the algorithm used by Cloudflare.
+
+---
+
+## 4. Distributed Rate Limiting with Redis
+
+In a system with multiple application servers behind a load balancer, you **cannot** store rate-limit counters in local memory — each server would have its own counter, and a client could bypass the limit by hitting different servers.
+
+The solution is a **centralized, shared counter store** — typically **Redis** — that all servers read from and write to.
+
+<Mermaid chart='flowchart TD[nl]
+    Client["Client"] --> LB["Load Balancer"][nl]
+    LB --> App1["App Server 1"][nl]
+    LB --> App2["App Server 2"][nl]
+    App1 -->|"Check rate limit"| Redis["Redis (Shared Counter Store)"][nl]
+    App2 -->|"Check rate limit"| Redis' />
+
+### Atomic Operations with Lua Scripts
+
+A critical concern is **race conditions**. If two servers read the counter simultaneously, both see `count = 99` (under the limit of 100), and both increment it, the actual count becomes 101 — exceeding the limit.
+
+To prevent this, use a **Redis Lua script** that reads, checks, and increments the counter **atomically** (as a single, indivisible operation):
+
+```lua
+-- Redis Lua script for a fixed-window rate limiter
+local key = KEYS[1]           -- e.g., "rate_limit:user_123:minute_42"
+local limit = tonumber(ARGV[1])  -- e.g., 100
+local ttl = tonumber(ARGV[2])    -- e.g., 60 (seconds)
+
+local current = tonumber(redis.call("GET", key) or "0")
+
+if current >= limit then
+    return 0  -- REJECTED
+end
+
+-- Increment atomically
+redis.call("INCR", key)
+
+-- Set TTL only if this is the first request in the window
+if current == 0 then
+    redis.call("EXPIRE", key, ttl)
+end
+
+return 1  -- ALLOWED
+```
+
+Because Redis executes Lua scripts atomically (single-threaded), there is no race condition — even with hundreds of application servers calling this script concurrently.
+
+---
+
+## 5. Handling Rate-Limited Clients
+
+When a client exceeds its rate limit, the server should communicate clearly using standard HTTP headers:
+
+### Response Headers
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 30
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1718489400
+
+{
+    "error": "rate_limit_exceeded",
+    "message": "You have exceeded 100 requests per minute. Try again in 30 seconds."
+}
+```
+
+| Header | Meaning |
+| :--- | :--- |
+| `Retry-After` | Number of seconds the client should wait before retrying. |
+| `X-RateLimit-Limit` | The maximum number of requests allowed in the window. |
+| `X-RateLimit-Remaining` | How many requests the client has left in the current window. |
+| `X-RateLimit-Reset` | The Unix timestamp when the rate limit window resets. |
+
+### Client-Side Best Practice: Exponential Backoff
+
+Well-behaved clients should respect `429` responses and implement **exponential backoff** — retrying with increasing delays:
+
+```typescript
+async function fetchWithRetry(url: string, maxRetries = 5): Promise<Response> {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        const response = await fetch(url);
+
+        if (response.status !== 429) {
+            return response; // Success or non-retryable error
+        }
+
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s (with jitter)
+        const retryAfter = response.headers.get("Retry-After");
+        const delay = retryAfter
+            ? parseInt(retryAfter) * 1000
+            : Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+
+        console.log(`Rate limited. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    throw new Error("Max retries exceeded");
+}
+```
+
+---
+
+## 6. Rate Limiting Strategies by Scope
+
+Different rate limits can be applied at different scopes:
+
+| Scope | Example | Use Case |
+| :--- | :--- | :--- |
+| **Per User / API Key** | 1,000 requests per user per hour | Standard API rate limiting |
+| **Per IP Address** | 100 requests per IP per minute | Brute force protection for login pages |
+| **Per Endpoint** | 10 requests to `POST /api/payments` per minute | Protecting expensive operations |
+| **Global** | 50,000 requests per second (total) | System-wide circuit breaker |
+
+> [!IMPORTANT]
+> In production, you should apply **multiple layers** of rate limiting simultaneously. For example: a global limit of 50k req/s, per-user limit of 100 req/min, and a per-endpoint limit of 5 req/min on `POST /api/password-reset`.
+
+---
+
+## 7. Algorithm Comparison Summary
+
+| Algorithm | Accuracy | Memory | Burst Handling | Complexity | Used By |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Token Bucket** | Good | Low | Yes (natural) | Medium | AWS, Stripe, NGINX |
+| **Fixed Window** | Poor (boundary) | Very Low | Poor | Simple | Basic implementations |
+| **Sliding Window Log** | Perfect | High | No | Medium | High-security systems |
+| **Sliding Window Counter** | Good | Low | No | Medium | Cloudflare |
+
+> [!TIP]
+> For system design interviews, **Token Bucket** is the safest default answer. It handles bursts gracefully, uses minimal memory, and is used by the majority of production API gateways. Mention the boundary problem of Fixed Windows to demonstrate depth.

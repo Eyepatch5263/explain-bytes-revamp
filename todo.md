@@ -38,3 +38,17 @@
 - [x] Retrieve the existing Operating Systems, Networking, and DBMS question-and-answer data.
 - [x] Add a shared deck selector and reusable routes for the three new study decks.
 - [x] Validate each new deck’s content, interaction, and responsive layout.
+
+# System Design Flash Docs
+
+- [x] Preserve every existing System Design MDX chapter and topic order from the source repository.
+- [x] Configure the reader to render the MDX prose, diagrams, code blocks, tables, and callouts without trimming content.
+- [x] Port the existing DNS, database, and load-balancing simulations into the dedicated reader routes.
+- [x] Scaffold the Amazon Polly and S3 chapter-listening flow with user-supplied environment variables, ready for later credential activation.
+- [x] Verify chapter rendering, simulations, listening controls, and responsive reader navigation.
+
+# Flash Docs Fidelity Refinements
+
+- [x] Use the original System Design topic metadata and source category order in the reader catalogue and chapter navigation.
+- [x] Convert source MDX note, tip, warning, and caution alerts into readable Flash Docs callouts.
+- [x] Verify the library, chapter reader, and DNS simulation at the mobile breakpoint.

@@ -1,0 +1,197 @@
+---
+title: Proxies & API Gateways
+description: Understand forward proxies, reverse proxies, and API gateways. Learn how they differ, when to use each, and how they power modern microservice architectures with NGINX, Envoy, and Kong.
+order: 12
+category: Design Patterns
+---
+
+# Proxies & API Gateways
+
+A **proxy** is an intermediary server that sits between a client and a destination server. It intercepts requests and responses, adding functionality like security, caching, load balancing, or traffic shaping — without the client or server needing to know about it. Understanding proxies is foundational to system design because nearly every production system uses them at multiple levels.
+
+---
+
+## 1. Forward Proxy
+
+A forward proxy sits in front of **clients** and acts on their behalf. The client sends its request to the proxy, and the proxy forwards it to the internet.
+
+<Mermaid chart='flowchart LR[nl]
+    Client1["Client A"] --> FP["Forward Proxy"][nl]
+    Client2["Client B"] --> FP[nl]
+    FP --> Internet["Internet / Destination Server"]' />
+
+### How a Forward Proxy Works
+1.  The client is configured to send all outbound traffic through the proxy.
+2.  The proxy receives the request, optionally modifies it (e.g., strips the client's IP), and forwards it to the destination.
+3.  The destination server sees the proxy's IP address, not the client's.
+
+### Forward Proxy Use Cases
+
+| Use Case | Example |
+| :--- | :--- |
+| **Anonymity** | A VPN service masks your IP address by routing traffic through a forward proxy in another country. |
+| **Content Filtering** | A corporate network blocks access to social media by configuring a forward proxy to reject requests to `facebook.com`. |
+| **Bypassing Geo-Restrictions** | A user in India routes traffic through a US-based forward proxy to access US-only content. |
+| **Caching** | A university's proxy caches frequently accessed websites, reducing bandwidth costs and speeding up access for students. |
+
+### Key Point: Client Anonymity
+The **destination server does not know** who the real client is. It only sees the proxy.
+
+---
+
+## 2. Reverse Proxy
+
+A reverse proxy sits in front of **servers** and acts on their behalf. The client sends its request to the reverse proxy (thinking it's the actual server), and the proxy forwards it to one of the backend servers.
+
+<Mermaid chart='flowchart LR[nl]
+    Client["Client"] --> RP["Reverse Proxy[br](NGINX / Envoy)"][nl]
+    RP --> Server1["Backend Server 1"][nl]
+    RP --> Server2["Backend Server 2"][nl]
+    RP --> Server3["Backend Server 3"]' />
+
+### How a Reverse Proxy Works
+1.  The client sends a request to `api.example.com`. DNS resolves this to the reverse proxy's IP address.
+2.  The reverse proxy receives the request, inspects it, and forwards it to the appropriate backend server.
+3.  The backend server processes the request and sends the response back through the reverse proxy to the client.
+
+### Reverse Proxy Use Cases
+
+| Use Case | Description |
+| :--- | :--- |
+| **Load Balancing** | Distributes incoming requests across multiple backend servers (round-robin, least connections, etc.). |
+| **SSL Termination** | Handles HTTPS decryption so backend servers only deal with plain HTTP, reducing their CPU load. |
+| **Caching** | Caches static responses (images, CSS, JS) and serves them directly without hitting backend servers. |
+| **Compression** | Compresses responses (gzip, Brotli) before sending them to the client to reduce bandwidth. |
+| **Security** | Hides the identity and topology of backend servers. Clients never know the real server IPs or how many servers exist. |
+| **Rate Limiting** | Enforces request limits per client before traffic reaches application servers. |
+
+### Key Point: Server Anonymity
+The **client does not know** which backend server handled its request, or even how many servers exist.
+
+---
+
+## 3. Forward Proxy vs. Reverse Proxy
+
+| Feature | Forward Proxy | Reverse Proxy |
+| :--- | :--- | :--- |
+| **Sits in front of** | Clients | Servers |
+| **Acts on behalf of** | The client | The server |
+| **Hides** | Client identity from the server | Server identity from the client |
+| **Configured by** | The client or network admin | The server/infrastructure team |
+| **Common tools** | Squid, corporate firewalls, VPNs | NGINX, HAProxy, Envoy, Caddy |
+
+The key distinction is **who is being protected**: a forward proxy protects the client, a reverse proxy protects the server.
+
+---
+
+## 4. API Gateway
+
+An API Gateway is a **specialized reverse proxy** designed specifically for managing APIs in a microservices architecture. While a reverse proxy handles generic traffic routing, an API Gateway adds application-layer intelligence: authentication, rate limiting, request transformation, and API versioning.
+
+<Mermaid chart='flowchart TD[nl]
+    Client["Client App"] --> Gateway["API Gateway[br](Kong / AWS API Gateway)"][nl]
+    Gateway -->|"/api/users"| UserService["User Service"][nl]
+    Gateway -->|"/api/orders"| OrderService["Order Service"][nl]
+    Gateway -->|"/api/payments"| PaymentService["Payment Service"]' />
+
+### What the API Gateway Does
+
+When a request arrives at the gateway, it performs a pipeline of operations:
+
+```
+1. Authentication    → Is this a valid user? (Verify JWT token)
+2. Rate Limiting     → Has this user exceeded 100 req/min?
+3. Request Routing   → Which microservice handles /api/orders?
+4. Protocol Translation → Convert HTTP/REST to internal gRPC
+5. Request Transform → Add correlation ID, strip sensitive headers
+6. Response Transform → Aggregate data from multiple services into one response
+7. Logging & Metrics → Record latency, status codes, and request metadata
+```
+
+### API Gateway vs. Simple Reverse Proxy
+
+| Capability | Reverse Proxy (NGINX) | API Gateway (Kong / AWS) |
+| :--- | :--- | :--- |
+| **Load Balancing** | Yes | Yes |
+| **SSL Termination** | Yes | Yes |
+| **Authentication** | Basic (via modules) | Built-in (JWT, OAuth, API Keys) |
+| **Rate Limiting** | Basic (via config) | Advanced (per-user, per-endpoint) |
+| **Request Transformation** | No | Yes (modify headers, body, query params) |
+| **API Versioning** | No | Yes (route `/v1/` vs `/v2/` to different services) |
+| **Analytics Dashboard** | No | Yes (request counts, latency percentiles) |
+| **Protocol Translation** | Limited | Yes (REST to gRPC, HTTP to WebSocket) |
+
+### When to Use Which
+
+*   **Use a Reverse Proxy** (NGINX, Envoy) when you need basic load balancing, SSL, and caching for a monolithic or simple application.
+*   **Use an API Gateway** (Kong, AWS API Gateway, Apigee) when you have a microservices architecture and need centralized authentication, rate limiting, and request routing across many services.
+
+> [!TIP]
+> In many production systems, you use **both**: an L4/L7 reverse proxy (like NGINX or AWS ALB) at the edge for raw traffic handling, with an API Gateway (like Kong) behind it for application-level API management.
+
+---
+
+## 5. Service Mesh: The Next Evolution
+
+In large microservice deployments (hundreds of services), even an API Gateway becomes a bottleneck because all traffic funnels through a single point. A **Service Mesh** decentralizes this by placing a lightweight proxy (called a **sidecar**) next to every service instance.
+
+<Mermaid chart='flowchart LR[nl]
+    subgraph PodA["Service A Pod"][nl]
+        AppA["Service A"] --- SidecarA["Sidecar Proxy[br](Envoy)"][nl]
+    end[nl]
+    subgraph PodB["Service B Pod"][nl]
+        AppB["Service B"] --- SidecarB["Sidecar Proxy[br](Envoy)"][nl]
+    end[nl]
+    SidecarA <-->|"mTLS encrypted"| SidecarB[nl]
+    ControlPlane["Control Plane[br](Istio / Linkerd)"] --> SidecarA[nl]
+    ControlPlane --> SidecarB' />
+
+### How a Service Mesh Works
+1.  Every microservice gets a **sidecar proxy** (typically Envoy) deployed alongside it in the same Kubernetes pod.
+2.  All inbound and outbound network traffic for the service flows through its sidecar.
+3.  A **control plane** (Istio, Linkerd) manages the configuration of all sidecars centrally — defining routing rules, retry policies, circuit breakers, and mutual TLS (mTLS) encryption.
+
+### What a Service Mesh Handles
+
+| Feature | Description |
+| :--- | :--- |
+| **Mutual TLS (mTLS)** | Automatically encrypts all service-to-service communication. No code changes needed. |
+| **Traffic Management** | Canary deployments (route 5% of traffic to v2), A/B testing, traffic mirroring. |
+| **Observability** | Automatic distributed tracing (Jaeger), metrics (Prometheus), and access logs for every request. |
+| **Resilience** | Built-in retries, timeouts, and circuit breakers at the proxy level. |
+| **Service Discovery** | Sidecars automatically discover the location of other services via the control plane. |
+
+### When to Use a Service Mesh
+
+*   **Use it when** you have 50+ microservices, need zero-trust security (mTLS), and want observability without instrumenting each service.
+*   **Don't use it when** you have a small number of services. The operational complexity of running Istio/Linkerd (control plane, sidecar injection, debugging proxy issues) outweighs the benefits for small deployments.
+
+---
+
+## 6. Real-World Proxy Stack
+
+In a production system, multiple proxy layers work together:
+
+```
+Client Request
+    │
+    ▼
+[CDN Edge (Cloudflare)]           ← Cache static assets, DDoS protection
+    │
+    ▼
+[L4 Load Balancer (AWS NLB)]      ← Raw TCP/IP routing, millions of packets/sec
+    │
+    ▼
+[L7 Reverse Proxy (NGINX)]       ← SSL termination, compression, rate limiting
+    │
+    ▼
+[API Gateway (Kong)]              ← Auth, request routing, protocol translation
+    │
+    ▼
+[Sidecar Proxy (Envoy)]          ← mTLS, retries, circuit breaking
+    │
+    ▼
+[Application Service]             ← Business logic
+```
+
+Each layer handles a specific concern, creating a **defense-in-depth** architecture where no single failure point can crash the entire system.

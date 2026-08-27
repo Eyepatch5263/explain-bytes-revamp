@@ -1,0 +1,4 @@
+.flashdocs-callout-label { display: flex; align-items: center; gap: .4rem; margin-bottom: .45rem; color: #c75143; font: 500 9px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+.flashdocs-callout--tip { border-color: #4072f6; background: rgba(64,114,246,.08); }.flashdocs-callout--tip .flashdocs-callout-label { color: #2f5bd0; }
+.flashdocs-callout--warning,.flashdocs-callout--caution { border-color: #d3903b; background: rgba(211,144,59,.12); }.flashdocs-callout--warning .flashdocs-callout-label,.flashdocs-callout--caution .flashdocs-callout-label { color: #98601e; }
+.dark .flashdocs-callout--tip { background: rgba(64,114,246,.17); }.dark .flashdocs-callout--tip .flashdocs-callout-label { color: #8aa7ff; }.dark .flashdocs-callout--warning,.dark .flashdocs-callout--caution { background: rgba(211,144,59,.17); }.dark .flashdocs-callout--warning .flashdocs-callout-label,.dark .flashdocs-callout--caution .flashdocs-callout-label { color: #f0bd72; }

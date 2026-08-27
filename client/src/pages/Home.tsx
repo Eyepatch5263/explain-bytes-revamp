@@ -63,7 +63,7 @@ export default function Home() {
             <span className="font-display text-[28px] leading-none tracking-[-0.05em]">Explain Bytes</span>
           </a>
           <nav className="hidden items-center gap-7 font-mono text-[11px] font-medium uppercase tracking-[0.11em] text-[#13221e]/70 lg:flex" aria-label="Primary navigation">
-            <a className="nav-link" href="#library">Library</a>
+            <a className="nav-link" href="/docs">Library</a>
             <a className="nav-link" href="/flashcards">Flash cards</a>
             <a className="nav-link" href="#terms">Terms</a>
             <a className="nav-link" href="#collaborate">Collaborate</a>
@@ -71,7 +71,7 @@ export default function Home() {
           <button onClick={toggleTheme} className="theme-toggle hidden h-10 items-center gap-2 rounded-full border border-[#13221e]/15 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}<span>{theme === "dark" ? "Light" : "Dark"}</span>
           </button>
-          <a className="hidden items-center gap-2 rounded-full bg-[#13221e] px-5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-[#f3f0e8] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" href="#library">
+          <a className="hidden items-center gap-2 rounded-full bg-[#13221e] px-5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-[#f3f0e8] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" href="/docs">
             Begin learning <ArrowRight size={14} />
           </a>
           <button className="grid h-10 w-10 place-items-center rounded-full border border-[#13221e]/15 lg:hidden" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle navigation" aria-expanded={mobileOpen}>
@@ -82,7 +82,7 @@ export default function Home() {
           <nav className="border-t border-[#13221e]/10 bg-[#f3f0e8] px-5 py-5 lg:hidden" aria-label="Mobile navigation">
             <div className="site-shell flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.1em]">
               {["Library", "Flash cards", "Terms", "Collaborate"].map((item, index) => (
-                <a key={item} href={["#library", "/flashcards", "#terms", "#collaborate"][index]} onClick={() => setMobileOpen(false)} className="flex items-center justify-between border-b border-[#13221e]/10 py-4">
+                <a key={item} href={["/docs", "/flashcards", "#terms", "#collaborate"][index]} onClick={() => setMobileOpen(false)} className="flex items-center justify-between border-b border-[#13221e]/10 py-4">
                   {item} <ArrowDownRight size={16} />
                 </a>
               ))}
@@ -116,7 +116,7 @@ export default function Home() {
                   Trace the systems behind the software you use. Clear explanations, memorable diagrams, and practice that turns knowledge into instinct.
                 </p>
                 <div className="mt-10 flex flex-wrap items-center gap-3">
-                  <a href="#library" className="group inline-flex items-center gap-3 bg-[#13221e] px-5 py-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#f5f1e8] transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0_#e66b5b] active:scale-[0.97]">
+                  <a href="/docs" className="group inline-flex items-center gap-3 bg-[#13221e] px-5 py-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#f5f1e8] transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0_#e66b5b] active:scale-[0.97]">
                     Read a concept <ArrowRight className="transition-transform duration-200 group-hover:translate-x-1" size={15} />
                   </a>
                   <a href="/flashcards" className="inline-flex items-center gap-2 border-b border-[#13221e] py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors hover:text-[#4072f6]">

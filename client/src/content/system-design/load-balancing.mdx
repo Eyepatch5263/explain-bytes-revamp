@@ -1,0 +1,376 @@
+---
+title: Load Balancers
+description: Distributing network and application traffic across servers. Learn about Layer 4 vs Layer 7 load balancing, routing algorithms, session persistence, health checks, and scaling strategies.
+order: 2
+category: Building Blocks
+---
+
+# Load Balancing
+
+A single web server can only handle a limited number of concurrent connections. To scale beyond a single machine, we use **Load Balancers (LBs)**. A load balancer acts as a traffic cop, routing incoming client requests across a pool of backend servers. This prevents any single server from becoming a bottleneck, eliminates single points of failure, and enables horizontal scaling.
+
+
+## 1. Multi-Tier Load Balancing Architecture
+When designing systems that handle millions of requests per second, a single load balancer becomes an immediate bottleneck. To scale efficiently, modern infrastructure relies on a **tiered architecture** where each layer does exactly one job, gradually filtering traffic from high-volume/low-intelligence to low-volume/high-intelligence routing.
+
+---
+
+<Mermaid chart='flowchart TD[nl]
+    Client["Client Requests"] -->|1. Geolocation DNS| DNS["DNS Anycast Routing"][nl]
+    DNS -->|2. Route to nearest region| L4["Layer 4 Load Balancer (LVS / HAProxy)[br](IP/Port Routing - Fast)"][nl]
+    L4 -->|3. Route to L7 cluster| L7["Layer 7 Load Balancer (NGINX / Envoy)[br](Content-Aware - SSL Termination)"][nl]
+    L7 -->|4. Forward request| App1["App Server 1"][nl]
+    L7 -->|4. Forward request| App2["App Server 2"][nl]
+    L7 -->|4. Forward request| App3["App Server 3"]' />
+
+### Interactive Multi-Tier Traffic Flow Simulation
+
+> [!NOTE]
+> **Interactive Sandbox**: You can visualize this multi-tier architecture in action and experiment with Direct Server Return (DSR) on the [Interactive Simulation](/docs/system-design/load-balancing/simulation) page.
+
+
+
+## The Core Philosophy: Throughput vs. Intelligence
+
+Why not just send all internet traffic directly to NGINX or Envoy? Because **computational complexity directly limits throughput**. 
+
+As you move down the routing stack, the amount of CPU processing required per packet increases exponentially:
+
+* **Layer 4 (L4)** only looks at simple packet headers. It handles millions of raw packets with minimal CPU overhead. Cannot do smart routing (e.g., routing /api/v1/payments to a payments service and /static to a CDN). Cannot terminate SSL or handle cookies.
+* **Layer 7 (L7)** must assemble packets into a complete HTTP request, parse text headers, handle cookies, and decrypt heavy SSL/TLS encryption. This is highly CPU-intensive. Slower than L4 due to connection termination and packet inspection. Content-aware routing. Can manage session cookies (sticky sessions), perform rate limiting, compress responses (Gzip/Brotli), and handle path-based routing.
+
+By placing a fast L4 layer in front of a smart L7 layer, you protect your compute-heavy resources from being overwhelmed by raw connection volume or DDoS attacks.
+
+<Mermaid chart='flowchart LR[nl]
+    L4["L4 Load Balancing[br](Transport Layer)"] -->|Inspects only| L4Fields["Source/Dest IP & TCP/UDP Port"][nl]
+    L7["L7 Load Balancing[br](Application Layer)"] -->|Inspects fully| L7Fields["HTTP Headers, Cookies, URL Paths, JSON Payload"]' />
+
+---
+
+## Architectural Breakdown of the Three Tiers
+
+
+
+### 1. The Global Routing Tier: DNS (Anycast / GeoDNS)
+The entry point of any request is the Domain Name System. At this tier, no actual application data or connection packets have even reached your data centers yet. 
+
+* **The Logic:** Instead of balancing raw traffic, DNS routes the *client* to the optimal infrastructure entry point. 
+* **How it works:** Using **Anycast Routing**, multiple data centers advertise the exact same public IP address via BGP. The internet's routing infrastructure naturally drops the user's connection at the topologically closest edge node. If using **GeoDNS**, the authoritative server looks at the client's location (using EDNS Client Subnet) and explicitly answers with the IP of the nearest data center.
+* **Advanced Global Server Load Balancing (GSLB):** Standard DNS is passive. GSLB is an active, "smart" DNS tier that constantly monitors the health of your entire data centers. If an earthquake takes down your `ap-northeast` region, the GSLB instantly updates the DNS routing table to push all Asian traffic to a backup region, achieving cross-region high availability.
+
+### 2. The Connection Tier: Layer 4 Load Balancing (LVS / NLB)
+Once the client's browser gets the IP and opens a TCP connection, the packets hit your data center's frontline defender: the Layer 4 load balancer.
+
+* **The Logic:** This layer exists purely to split massive, raw incoming packet streams across a fleet of Layer 7 load balancers. It acts at the Transport layer of the OSI model.
+* **How it works:** Tools like Linux Virtual Server (LVS) or AWS Network Load Balancer (NLB) use an optimized kernel space or hardware chips to inspect only the **5-Tuple** of a packet: Source IP, Source Port, Destination IP, Destination Port, and Protocol (TCP/UDP). 
+* **The Handoff:** It hashes this 5-tuple to choose a healthy L7 instance. It never opens the application payload or decrypts TLS. It simply rewrites the destination or utilizes Direct Server Return (DSR) to push raw packets downstream at line speed.
+
+* **Advanced Feature: Direct Server Return (DSR):** Normally, a load balancer sits in the middle of both the incoming request and the outgoing response. But because HTTP responses (like sending a 50MB video) are vastly larger than requests (a 1KB `GET`), the Load Balancer's outbound network card becomes a bottleneck. **DSR solves this.** The L4 balancer changes the MAC address of the packet so it reaches the backend server, but the backend server sends the massive 50MB response *directly* to the client, completely bypassing the Load Balancer on the way out.
+
+### 3. The Application Tier: Layer 7 Load Balancing (NGINX / Envoy)
+* Now that the massive flood of raw packets has been neatly split into manageable chunks, they arrive at the content-aware Layer 7 reverse proxies.
+
+* **The Logic:** This layer provides intelligent, application-level decision making. It operates at the highest level of the OSI model.
+* **How it works:** The L7 load balancer terminates the SSL/TLS connection (performing the heavy cryptographic handshake) and fully assembles the raw TCP streams back into readable HTTP requests.
+
+
+---
+
+## Step-by-Step Life of a Packet
+
+To see the absolute logic of this system in action, follow a single request from a browser to your code:
+
+1. **The Lookup:** The client asks DNS for `explainbytes.tech`. Anycast DNS maps them to the nearest available data center IP.
+2. **The Wave:** The browser fires a TCP connection request. It hits an L4 Load Balancer alongside 10 million other concurrent connections. 
+3. **The Distribution:** The L4 balancer quickly reads the packet's outer TCP header, hashes the connection details, and pushes the packets to L7 Server #4 out of 100 available nodes.
+4. **The Unwrapping:** L7 Server #4 decrypts the SSL/TLS package and reads the HTTP header: `GET /api/v1/users`. 
+5. **The Final Delivery:** The L7 balancer looks at its routing table, evaluates which backend App Instance is currently least busy, and forwards the clean, unencrypted HTTP request over a fast local network to `App Server 2`.
+
+---
+
+## Architecture Summary Reference
+
+| Feature | Tier 1: DNS | Tier 2: L4 Load Balancer | Tier 3: L7 Load Balancer |
+| :--- | :--- | :--- | :--- |
+| **OSI Layer** | Application (Layer 7 for protocol, but acts as a global director) | Transport (Layer 4) | Application (Layer 7) |
+| **Data Inspected** | Domain name and Client Subnet IP | IP Address, Port, TCP/UDP protocol flags | HTTP Headers, Cookies, URL path, JSON Payload |
+| **Primary Metric** | Geographical distance & Availability | Packet Throughput & Active Connection Count | Request paths, application state, authentication headers |
+| **Key Capability** | Global Data Center Failover | High-volume DDoS absorption and raw connection splitting | SSL/TLS Termination, Security (WAF), Microservice Routing |
+---
+
+## 2. Load Balancing Algorithms
+
+> Do watch the simulation of different [Load Balancing algorithms](/docs/system-design/load-balancing/simulation/) after reading this section for better understanding.
+
+Load balancers use specific strategies to choose which server receives the next request:
+
+### 1. Round Robin
+Requests are distributed sequentially down the list of servers.
+*   **Pros**: Extremely simple; no state required.
+*   **Cons**: Assumes all backend servers have the same capacity and that all requests consume the same amount of resources.
+
+```typescript
+class RoundRobin {
+    private servers: string[];
+    private index = 0;
+
+    constructor(servers: string[]) {
+        this.servers = servers;
+    }
+
+    getNextServer(): string {
+        const server = this.servers[this.index];
+        this.index = (this.index + 1) % this.servers.length;
+        return server;
+    }
+}
+```
+
+### 2. Weighted Round Robin
+Each server is assigned a weight representing its processing capacity (e.g., CPU, RAM). Servers with higher weights receive more traffic.
+*   **Pros**: Handles heterogeneous server pools (e.g., combining 16-core servers with 4-core servers).
+
+```typescript
+interface WeightedServer {
+    host: string;
+    weight: number;
+}
+
+class WeightedRoundRobin {
+    private servers: WeightedServer[];
+    private currentIndex = 0;
+    private currentWeight = 0;
+    private maxWeight = 0;
+
+    constructor(servers: WeightedServer[]) {
+        this.servers = servers;
+        this.maxWeight = Math.max(...servers.map(s => s.weight));
+    }
+
+    getNextServer(): string {
+        while (true) {
+            this.currentIndex = (this.currentIndex + 1) % this.servers.length;
+            if (this.currentIndex === 0) {
+                this.currentWeight = this.currentWeight - 1;
+                if (this.currentWeight <= 0) {
+                    this.currentWeight = this.maxWeight;
+                }
+            }
+            if (this.servers[this.currentIndex].weight >= this.currentWeight) {
+                return this.servers[this.currentIndex].host;
+            }
+        }
+    }
+}
+```
+
+### 3. Least Connections
+Directs traffic to the server with the fewest active, concurrent connections.
+*   **Pros**: Dynamically adapts. If Server A receives a slow request (e.g., a file upload) and Server B receives fast requests, the balancer will route subsequent requests to Server B.
+*   **Best For**: Long-lived connections (e.g., WebSockets, Database pools) and varying request processing times.
+
+### 4. IP Hash & Consistent Hashing
+Hashes the client's IP address to map them to a specific server, providing Session Affinity. However, simple hashing (`Hash(IP) % N`) breaks catastrophically if a server crashes because the value of `N` changes, shuffling all users to different servers and destroying sessions. 
+
+
+* **The Solution: Consistent Hashing.** By mapping both servers and requests onto a conceptual "hash ring," adding or removing a server only impacts the data immediately adjacent to it, leaving the vast majority of user sessions perfectly stable. 
+* *Note: We will dive deep into the mechanics of Consistent Hashing and virtual nodes in a dedicated chapter later in this module.*
+
+### 5. Advanced / Modern Algorithms
+Modern distributed systems (like Kubernetes and Envoy) use advanced math to prevent "thundering herd" problems:
+* **Least Response Time:** Routes traffic to the server with the fewest active connections *and* the lowest historical average response time.
+* **Power of Two Choices:** A highly efficient algorithm for massive scale. Instead of polling 10,000 servers to find the absolute least busy one (which consumes massive CPU), the balancer picks two servers completely at random, checks their current load, and sends the request to the less busy of the two.
+
+---
+
+## 3. Session Persistence: Sticky Sessions vs. Stateless Sessions
+
+If your application server stores session state in local memory (stateful design), the user must hit the same server on every request.
+
+<Mermaid chart='flowchart TD[nl]
+    subgraph StickySession["1. Sticky Sessions (Session Affinity)"][nl]
+        ClientA["Client A"] -->|Cookie: server=1| LB1["Load Balancer"][nl]
+        LB1 -->|Routes based on Cookie| AppS1["App Server 1 (Local Session)"][nl]
+    end[nl]
+[nl]
+    subgraph StatelessSession["2. Stateless Architecture (Recommended)"][nl]
+        ClientB["Client B"] -->|JWT Auth Token| LB2["Load Balancer"][nl]
+        LB2 -->|Any Server can process| AppS2["App Server 2"][nl]
+        LB2 -->|Any Server can process| AppS3["App Server 3"][nl]
+        AppS2 -->|Fetch session state| SharedCache["Shared Redis Cache"][nl]
+        AppS3 -->|Fetch session state| SharedCache[nl]
+    end' />
+
+1.  **Sticky Sessions (Cookie-based)**: The load balancer inserts a cookie (e.g., `SERVERID=app1`) into the first HTTP response. Subsequent requests read this cookie to route the user back to `app1`.
+    *   *Downside*: Hard to scale horizontally. Server crashes cause data loss.
+2.  **Shared Session State (Stateless)**: Backend servers do not store session data locally. Instead, they fetch session credentials from a fast, shared distributed cache (e.g., Redis).
+    *   *Upside*: Highly scalable; any server can process any request.
+
+---
+
+## 4. Health Checks & High Availability
+
+To prevent routing traffic to dead servers, the load balancer continuously performs **Health Checks**.
+
+```yaml
+# Conceptual health check configuration (Nginx-like)
+health_check:
+  path: "/healthz"
+  interval: 10s       # Probe every 10 seconds
+  timeout: 5s         # Fail if no response in 5 seconds
+  unhealthy_limit: 3  # Mark dead after 3 consecutive failures
+  healthy_limit: 2    # Return to service after 2 consecutive successes
+```
+
+### Active vs. Passive Health Checks
+*   **Active Health Checks**: The load balancer proactively sends periodic ping/HTTP requests to a specific `/healthz` endpoint on all backend servers.
+*   **Passive Health Checks**: The load balancer monitors real-world user traffic. If a server starts returning `502 Bad Gateway` or timing out on actual user requests, the load balancer dynamically marks it as offline.
+
+---
+
+## 5. SSL/TLS Management: Termination vs Passthrough
+
+> Do watch the detailed [SSL/TLS Management Strategies](/docs/system-design/load-balancing/simulation/) for better understanding.
+
+Establishing an **SSL/TLS** connection requires expensive cryptographic work such as certificate validation, key exchange, and session key generation. Under heavy traffic, repeatedly performing these operations can consume significant CPU. To optimize this, load balancers handle TLS using two common strategies: **SSL Termination** and **SSL Passthrough**.
+
+| Strategy | Flow | Pros | Cons |
+| :--- | :--- | :--- | :--- |
+| **SSL Termination (Offloading)** | `Client ──[HTTPS]──► LB(Decryption) ──[HTTP]──► Servers` | Reduces backend CPU load, centralized certificate management, enables Layer 7 routing | Internal traffic is plaintext unless re-encrypted |
+| **SSL Passthrough** | `Client ──[HTTPS]──► LB ──[HTTPS]──► Servers(Decryption)` | End-to-end encryption, stronger security | Higher backend CPU usage, only Layer 4 routing |
+
+---
+
+### SSL Termination (Offloading)
+
+In **SSL termination**, the load balancer completes the TLS handshake with the client and decrypts incoming traffic before forwarding it to backend servers.
+
+```text
+Client -- HTTPS --> Load Balancer(Decryption) -- HTTP --> Backend
+```
+
+Request lifecycle:
+
+1. Client sends an HTTPS request.
+2. Load balancer performs TLS handshake.
+3. Traffic is decrypted at the load balancer.
+4. Plain HTTP request is forwarded internally.
+
+Because the load balancer can read the HTTP request, it can perform **Layer 7 routing**, such as:
+
+- `/api/*` → API servers  
+- `/images/*` → Media servers  
+- `/admin/*` → Admin services  
+
+This also enables:
+
+- Path-based routing
+- Header/Cookie inspection
+- Rate limiting
+- Web Application Firewall (WAF)
+- Request logging
+
+**Tradeoff:**  
+Traffic between LB and backend is unencrypted.
+
+```text
+LB ---> Backend = Plain HTTP
+```
+
+This is usually acceptable inside secure private networks (VPCs, internal firewalls, security groups), but becomes risky if the internal network is compromised.
+
+---
+
+### SSL Passthrough
+
+In **SSL passthrough**, the load balancer does **not decrypt** traffic. It simply forwards encrypted packets to backend servers.
+
+```text
+Client -- HTTPS --> Load Balancer -- HTTPS --> Backend(Decryption)
+```
+
+Request lifecycle:
+
+1. Client initiates TLS connection.
+2. Load balancer forwards encrypted packets unchanged.
+3. Backend server performs TLS handshake and decryption.
+
+Since traffic stays encrypted, the load balancer cannot inspect HTTP content. It only sees **Layer 4 metadata**:
+
+- Source IP
+- Destination IP
+- Port
+
+It cannot see:
+
+- URL path
+- Headers
+- Cookies
+- Request body
+
+As a result, routing is limited to:
+
+- Port-based routing
+- IP-based routing
+
+It cannot perform content-aware routing like:
+
+```http
+GET /payments/refund
+```
+
+because that request remains encrypted.
+
+**Tradeoff:**  
+Every backend server must handle TLS decryption, increasing CPU usage and certificate management complexity.
+
+---
+
+### TLS Re-encryption (Hybrid)
+
+Many production systems use a hybrid approach:
+
+```text
+Client -- HTTPS --> LB(Decryption & Encryption) -- HTTPS --> Backend
+```
+
+Flow:
+
+1. Load balancer decrypts request  
+2. Inspects and routes traffic  
+3. Re-encrypts traffic before forwarding  
+
+This combines the benefits of both approaches:
+
+- Layer 7 routing support  
+- Encrypted internal traffic  
+- Better security  
+
+**Tradeoff:** More CPU usage at the load balancer.
+
+---
+
+### Summary
+
+- **SSL Termination** → Decrypt at load balancer for better performance and advanced routing.
+- **SSL Passthrough** → Keep traffic encrypted end-to-end for maximum security.
+- **TLS Re-encryption** → Combines routing flexibility with encrypted internal communication.
+
+---
+
+## 6. Hardware vs. Software Load Balancers
+
+When deploying load balancers, engineers choose between dedicated hardware appliances and flexible software solutions:
+
+| Type | Examples | Best For | Characteristics |
+| :--- | :--- | :--- | :--- |
+| **Hardware (Appliance)** | F5 BIG-IP, Citrix NetScaler | Legacy enterprise, massive on-prem data centers, telcos. | Uses proprietary ASICs for ultra-high raw throughput. Very expensive, vendor lock-in, hard to automate. |
+| **Software (Cloud-Native)** | NGINX, HAProxy, Envoy, AWS ALB | Cloud deployments, microservices, modern startups. | Runs on commodity servers or inside containers. Highly programmable, cheap, integrates seamlessly with CI/CD and Kubernetes. |
+
+---
+
+## 7. Best Practices for System Designers
+
+1.  **Redundant Load Balancers**: A load balancer is a Single Point of Failure (SPOF). Always run a pair of load balancers using **Keepalived** or **floating IPs (VRRP)** so a backup takes over if the primary fails.
+2.  **Choose L7 for Web, L4 for Scale**: Use L7 load balancers (like NGINX/Envoy) for routing web traffic, SSL offloading, and security. Use L4 (like AWS NLB or LVS) at the ingress tier to distribute load among your NGINX cluster.
+3.  **Implement Graceful Shutdowns**: When deploying code, configure the load balancer to stop sending *new* connections to a server but allow *existing* connections to finish processing (connection draining).

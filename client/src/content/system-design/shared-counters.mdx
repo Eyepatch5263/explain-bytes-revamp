@@ -1,0 +1,223 @@
+---
+title: Shared Counters
+description: Design distributed shared counters for high-throughput counting. Learn sharded counters, approximate counting, CRDTs, and how systems like YouTube, Twitter, and Redis handle millions of increments per second.
+order: 15
+category: Building Blocks
+---
+
+# Shared Counters
+
+A **shared counter** tracks a numeric value that is incremented or decremented by many clients concurrently — view counts, like counts, inventory stock levels, active user counts, or rate limiter request counts. In a single-server system, an atomic integer in memory handles this trivially. In a distributed system with millions of writes per second across dozens of servers, a shared counter becomes a serious engineering challenge.
+
+---
+
+## 1. Why Shared Counters Are Hard
+
+### The Naive Approach
+
+Consider counting YouTube video views. The simplest design is a single row in a database:
+
+```sql
+UPDATE videos SET view_count = view_count + 1 WHERE video_id = 42;
+```
+
+**Problems at scale:**
+*   **Write contention**: Every view for the same video updates the same row. At 100,000 views per second (a viral video), all writes serialize on a single row lock, creating a massive bottleneck.
+*   **Lock contention**: The database row lock becomes a hot lock. Transactions queue up, latency spikes, and the database becomes unresponsive.
+*   **Single point of failure**: If the database goes down, no views are counted.
+
+### The Race Condition Problem
+
+Without proper synchronization, concurrent reads and writes produce incorrect counts:
+
+```
+Thread A: Read count = 100
+Thread B: Read count = 100
+Thread A: Write count = 101
+Thread B: Write count = 101  (should be 102!)
+
+One increment was lost.
+```
+
+---
+
+## 2. Sharded Counters
+
+The most effective technique for high-throughput counting is **sharding the counter** — splitting a single counter into $N$ independent shards, each maintained on a different node (or row).
+
+### How Sharded Counters Work
+
+Instead of one counter row, create $N$ shard rows:
+
+```sql
+-- Instead of: UPDATE videos SET view_count = view_count + 1 WHERE id = 42
+
+-- Create 10 shard rows:
+-- video_counter_shards: (video_id, shard_id, count)
+-- (42, 0, 0), (42, 1, 0), ..., (42, 9, 0)
+
+-- Increment: Pick a random shard
+UPDATE video_counter_shards
+SET count = count + 1
+WHERE video_id = 42 AND shard_id = FLOOR(RANDOM() * 10);
+
+-- Read: Sum all shards
+SELECT SUM(count) FROM video_counter_shards WHERE video_id = 42;
+```
+
+<Mermaid chart='flowchart TD[nl]
+    Req1["Increment Request"] -->|"Random shard"| S0["Shard 0: 1,042"][nl]
+    Req2["Increment Request"] -->|"Random shard"| S1["Shard 1: 987"][nl]
+    Req3["Increment Request"] -->|"Random shard"| S2["Shard 2: 1,105"][nl]
+    ReadReq["Read Request"] --> Sum["SUM(all shards) = 3,134"]' />
+
+**Why this works:** With 10 shards, the write throughput increases by ~10x because each shard receives only 1/10 of the write traffic. Lock contention is distributed across 10 separate rows instead of being concentrated on one.
+
+**Trade-offs:**
+*   **Reads are more expensive**: Reading the count requires summing all $N$ shards. This is acceptable when reads are far less frequent than writes (which is the case for view counts — you display the count once but increment it on every view).
+*   **Choosing $N$**: More shards = higher write throughput but more expensive reads. Tune $N$ based on your write rate.
+
+---
+
+## 3. In-Memory Counters with Periodic Flush
+
+For extremely high-throughput counters (millions of increments per second), even sharded database counters are too slow. Instead, count in **memory** and periodically flush to the database.
+
+### Architecture
+
+<Mermaid chart='flowchart LR[nl]
+    App1["App Server 1[br](Local counter: +237)"] -->|"Flush every 5 sec"| DB[("Database")][nl]
+    App2["App Server 2[br](Local counter: +189)"] -->|"Flush every 5 sec"| DB[nl]
+    App3["App Server 3[br](Local counter: +312)"] -->|"Flush every 5 sec"| DB' />
+
+### How In-Memory Flush Works
+
+1.  Each application server maintains an **in-memory counter** for each entity (e.g., `video_42_views = 0`).
+2.  Every incoming view increments the local counter (atomic operation, no network call).
+3.  Every $T$ seconds (e.g., 5 seconds), a background job flushes the accumulated count to the database:
+    ```sql
+    UPDATE videos SET view_count = view_count + 237 WHERE id = 42;
+    ```
+4.  The local counter resets to 0 after flushing.
+
+**Pros:**
+*   Near-zero latency for increments (in-memory operation).
+*   Database write rate is reduced from $R$ writes/sec to $R / (T \times N_{servers})$ writes/sec.
+
+**Cons:**
+*   **Data loss risk**: If a server crashes before flushing, the in-memory count is lost. For view counts, this is acceptable. For financial transactions, it is not.
+*   **Stale reads**: The displayed count lags behind the true count by up to $T$ seconds.
+
+> [!IMPORTANT]
+> This pattern is used by YouTube, Twitter, and Instagram for counts like views, likes, and retweets. These platforms accept a small degree of inaccuracy ("1.2M views" doesn't need to be exact to the last digit) in exchange for massive write throughput.
+
+---
+
+## 4. Redis Atomic Counters
+
+**Redis** provides atomic `INCR` and `DECR` commands that are single-threaded and lock-free, making them ideal for shared counters.
+
+```typescript
+// Increment a counter atomically
+const viewCount = await redis.incr("video:42:views");
+// Returns the new value: 1001
+
+// Increment by a specific amount
+await redis.incrby("video:42:views", 10);
+
+// Decrement (e.g., inventory stock)
+await redis.decr("product:99:stock");
+
+// Read the current value
+const count = await redis.get("video:42:views");
+```
+
+### Why Redis Works Well
+
+*   **Single-threaded execution**: Redis processes commands sequentially, so `INCR` is naturally atomic — no race conditions.
+*   **In-memory**: Operations complete in ~0.1ms.
+*   **Throughput**: A single Redis instance handles ~100,000 INCR operations per second. With Redis Cluster, this scales linearly.
+
+### Redis Counter with Periodic Database Sync
+
+For durability, combine Redis (fast writes) with a database (durable storage):
+
+```
+1. All increments go to Redis:           INCR video:42:views
+2. Every 60 seconds, a sync job:         count = GET video:42:views
+3. Flush to database:                    UPDATE videos SET view_count = {count}
+4. Optionally reset Redis counter:       SET video:42:views 0
+```
+
+---
+
+## 5. Approximate Counting: HyperLogLog
+
+Sometimes you don't need an exact count — you need an **approximate count of unique items**. For example: "How many unique users visited this page today?" Storing every user ID in a set consumes enormous memory. **HyperLogLog** (HLL) provides an approximate count using a fixed ~12 KB of memory, regardless of the number of unique elements.
+
+### How It Works (Simplified)
+
+HyperLogLog exploits a statistical property of random numbers: if you hash each element and track the maximum number of leading zeros in the binary hash values, you can estimate the cardinality (unique count) of the set.
+
+```
+# Redis HyperLogLog
+PFADD page:home:visitors "user_1"     # Add user to the HLL
+PFADD page:home:visitors "user_2"
+PFADD page:home:visitors "user_1"     # Duplicate — does not increase count
+PFCOUNT page:home:visitors            # Returns: ~2 (approximate unique count)
+```
+
+| Feature | Exact Set (Redis SET) | HyperLogLog |
+| :--- | :--- | :--- |
+| **Memory for 1M unique items** | ~50 MB | 12 KB |
+| **Accuracy** | Exact | ~0.81% standard error |
+| **Merge multiple counters** | Possible (SUNION) | Possible (PFMERGE) |
+| **Best For** | When exactness is required | Unique visitor counts, unique event counts |
+
+---
+
+## 6. CRDTs: Conflict-Free Replicated Data Types
+
+In a globally distributed system where counters exist in multiple data centers with no central coordinator, **CRDTs** (Conflict-Free Replicated Data Types) provide eventual consistency without coordination.
+
+### G-Counter (Grow-Only Counter)
+
+Each node maintains its own counter. The global count is the sum of all node-local counts. Nodes periodically exchange their state and merge by taking the maximum of each node's count.
+
+```
+Node A: { A: 5, B: 0, C: 0 }  →  local count = 5
+Node B: { A: 0, B: 3, C: 0 }  →  local count = 3
+Node C: { A: 0, B: 0, C: 7 }  →  local count = 7
+
+After merge (take max of each key):
+All nodes: { A: 5, B: 3, C: 7 }  →  global count = 15
+```
+
+Because the merge function is **commutative** and **idempotent** (merging in any order, any number of times, produces the same result), G-Counters never have conflicts.
+
+### PN-Counter (Positive-Negative Counter)
+
+A PN-Counter supports both increment and decrement by maintaining two G-Counters: one for increments (P) and one for decrements (N). The true count is $P - N$.
+
+```
+Increments (P): { A: 10, B: 5 }  →  Total P = 15
+Decrements (N): { A: 2,  B: 1 }  →  Total N = 3
+
+Counter value = 15 - 3 = 12
+```
+
+> [!TIP]
+> CRDTs are used in systems like **Riak**, **Redis (CRDTs in Redis Enterprise)**, and **Cassandra counters**. Mention them in system design interviews when discussing multi-region counters or offline-first applications.
+
+---
+
+## 7. Choosing the Right Counter Strategy
+
+| Requirement | Strategy | Example Use Case |
+| :--- | :--- | :--- |
+| Low write rate, exact count | Single database row | User profile: "Total posts: 42" |
+| High write rate, exact count | Sharded counters (database) | E-commerce: "Items in stock: 500" |
+| Very high write rate, approximate OK | In-memory + periodic flush | Video views: "1.2M views" |
+| Extreme throughput, low latency | Redis atomic counters | Rate limiting: "Requests this minute: 87/100" |
+| Unique count estimation | HyperLogLog | Unique daily visitors: "~2.3M" |
+| Multi-region, no coordinator | CRDTs (G-Counter / PN-Counter) | Global like count across data centers |

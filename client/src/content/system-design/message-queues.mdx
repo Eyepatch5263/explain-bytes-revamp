@@ -1,0 +1,149 @@
+---
+title: Message Queues
+description: Scale asynchronous communication. Learn about broker-based vs log-based queues (RabbitMQ vs Kafka), delivery guarantees, consumer groups, and Dead Letter Queues (DLQ).
+order: 8
+category: Building Blocks
+---
+
+# Message Queues & Event Streaming
+
+In monolithic applications, services communicate via in-memory function calls. In distributed architectures, services communicate via synchronous network calls (HTTP/gRPC) or asynchronously via a **Message Queue (MQ)** or **Event Stream**. Message queues decouple services, smooth traffic spikes, and improve system availability by allowing producers to send messages without waiting for consumers to process them.
+
+---
+
+## 1. Core Messaging Patterns
+
+How messages are routed from producers to consumers determines your system architecture:
+
+### 1. Point-to-Point (Queue-centric)
+A producer sends a message to a specific queue. Only one consumer receives and processes that message. Once processed and acknowledged, the message is deleted from the queue.
+
+<Mermaid chart='flowchart LR[nl]
+    Producer["Producer App"] -->|"1. Send Message"| Queue["Message Queue"][nl]
+    Queue -->|"2. Consume (Exclusively)"| Consumer1["Consumer App A"][nl]
+    Queue -.->|Inactive| Consumer2["Consumer App B"]' />
+
+*   **Best For**: Task distribution, work queues, background job processing (e.g., sending verification emails, processing video uploads).
+
+### 2. Publish-Subscribe (Pub/Sub - Topic-centric)
+Producers publish messages to a **Topic**. Multiple consumers subscribe to that topic. The message broker duplicates the message and sends it to all active subscribers.
+
+<Mermaid chart='flowchart TD[nl]
+    Publisher["Publisher App"] -->|Publish event| Topic["Topic: Order Created"][nl]
+    Topic --> SubscriberA["Subscriber A (Inventory Service)"][nl]
+    Topic --> SubscriberB["Subscriber B (Email Service)"][nl]
+    Topic --> SubscriberC["Subscriber C (Analytics Service)"]' />
+
+*   **Best For**: Event-driven architectures (e.g., notifying inventory, shipping, and email services when an order is completed).
+
+### 3. Fan-out / Exchange Routing (RabbitMQ style)
+Producers send messages to an **Exchange**. The exchange routes the message to multiple queues based on binding rules (routing keys, wildcards).
+
+<Mermaid chart='flowchart LR[nl]
+    Prod["Producer"] --> Exchange["Exchange"][nl]
+    Exchange -->|Binding Key: payment.*| QueueA["Payment Queue"] --> ConsumerA["Payment Service"][nl]
+    Exchange -->|Binding Key: shipping.*| QueueB["Shipping Queue"] --> ConsumerB["Shipping Service"]' />
+
+---
+
+## 2. Broker-based vs. Log-based Architectures
+
+Choosing the right messaging technology requires understanding the two architectural models:
+
+### 1. Traditional Message Brokers (e.g., RabbitMQ, ActiveMQ)
+Uses a **"Smart Broker, Dumb Consumer"** design. The broker manages message states, routes messages dynamically using exchanges, tracks consumer acknowledgments, and deletes messages once consumed.
+*   **Mechanism**: Push-based delivery. The broker pushes messages to consumers.
+*   **Pros**: Flexible routing, individual message acknowledgments, low latency.
+*   **Cons**: Scaling is limited because keeping track of individual message state across clustered queues consumes significant memory and CPU.
+
+---
+
+### 2. Log-Structured Streamers (e.g., Apache Kafka, Pulsar)
+Uses a **"Dumb Broker, Smart Consumer"** design. The broker acts as an append-only log of events written to disk. The broker does not track consumer state or delete messages upon consumption. Instead, messages remain in the partition until a retention policy expires (e.g., 7 days).
+
+<Mermaid chart='flowchart TD[nl]
+    subgraph Topic["Kafka Topic (Partitioned Log)"][nl]
+        P0["Partition 0[br](Msg 0, Msg 1, Msg 2)"][nl]
+        P1["Partition 1[br](Msg 0, Msg 1)"][nl]
+        P2["Partition 2[br](Msg 0, Msg 1, Msg 2, Msg 3)"][nl]
+    end[nl]
+[nl]
+    Producer["Producer"] -->|Publish with hash key| Topic[nl]
+[nl]
+    subgraph CG1["Consumer Group A[br](Share the partitions - scaled reads)"][nl]
+        C1["Consumer 1"] --- P0[nl]
+        C2["Consumer 2"] --- P1[nl]
+        C2 --- P2[nl]
+    end' />
+
+*   **Offsets**: Consumers track their own progress using a pointer called an **offset**. Multiple consumers can read the same partition at different speeds or replay the entire log by resetting their offset.
+*   **Mechanism**: Pull-based delivery. Consumers pull batches of messages from the broker.
+*   **Pros**: Massive throughput (millions of writes/sec), event replayability, horizontal scaling via partitioning.
+*   **Cons**: No complex routing; consumers must handle their own concurrency and message filtering.
+
+---
+
+## 3. Distributed Delivery Guarantees
+
+In distributed systems, network packets can fail, leading to different delivery guarantee options:
+
+1.  **At-Most-Once**: Messages are sent with fire-and-forget. If the network drops or the consumer crashes before committing to the database, the message is lost.
+    *   *Mechanism*: Consumer acknowledges the message immediately upon receipt, *before* processing it.
+2.  **At-Least-Once (Default)**: Messages are guaranteed to be delivered, but duplicates may occur.
+    *   *Mechanism*: Consumer only acknowledges the message *after* successfully committing the processed data to the database. If the consumer crashes mid-process, the broker redelivers the message.
+3.  **Exactly-Once**: The message is processed exactly once, with zero duplicates and zero loss.
+    *   *Mechanism*: Requires transactional coordination between the message broker and database, or designing **Idempotent Consumers**.
+
+---
+
+## 4. Designing Idempotent Consumers
+
+Since achieving "Exactly-Once" over the network is physically impossible, system designers build for **At-Least-Once** and ensure that processing the same message multiple times has no side effects.
+
+### Using Idempotency Keys
+Producers attach a unique `idempotency_key` (e.g., a UUID) to every message.
+
+```typescript
+interface MessagePayload {
+    idempotencyKey: string; // UUID
+    userId: string;
+    amount: number;
+}
+
+async function processPayment(message: MessagePayload) {
+    // 1. Check if the key already exists in a fast distributed cache (Redis)
+    const alreadyProcessed = await redis.set(
+        `processed_payment:${message.idempotencyKey}`,
+        "success",
+        "EX", 86400, // Expire after 24 hours
+        "NX" // Only write if key does NOT exist
+    );
+
+    if (!alreadyProcessed) {
+        console.log("Duplicate message detected. Skipping processing.");
+        return; // Skip duplicate message
+    }
+
+    // 2. Perform the critical action (e.g., charge credit card)
+    await db.transactions.create({
+        idempotencyKey: message.idempotencyKey,
+        userId: message.userId,
+        amount: message.amount
+    });
+}
+```
+
+---
+
+## 5. Handling Failures: Dead Letter Queues (DLQ)
+
+When a consumer encounters a malformed or unprocessable message (e.g., parsing error), retrying indefinitely will block the queue. We handle this using a **Dead Letter Queue (DLQ)**.
+
+<Mermaid chart='flowchart LR[nl]
+    Queue["Main Job Queue"] -->|"1. Fetch Message"| Consumer["Consumer App"][nl]
+    Consumer -->|"2. Processing Fails (3 retries)"| DLQ["Dead Letter Queue (DLQ)"][nl]
+    DLQ -->|"3. Alert / Inspect"| Engineer["Developer Dashboard"]' />
+
+1.  **Retry with Exponential Backoff**: If a transient database timeout occurs, return the message to the queue and retry, increasing the wait time with each attempt.
+2.  **Move to DLQ**: If a message fails after a set number of retries (e.g., 3), the consumer sends it to the DLQ and acknowledges it on the main queue. This unblocks the queue, allowing other messages to proceed.
+3.  **Manual Inspection**: Engineers monitor the DLQ, fix the root cause (e.g., updating database schemas or fixing software bugs), and replay the DLQ messages.
