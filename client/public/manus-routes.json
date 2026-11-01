@@ -1,0 +1,15 @@
+{
+  "routes": [
+    { "path": "/", "title": "Explain Bytes" },
+    { "path": "/login", "title": "Sign in" },
+    { "path": "/signup", "title": "Create account" },
+    { "path": "/terms", "title": "Engineering Terms" },
+    { "path": "/engineering-terms", "title": "Engineering Terms" },
+    { "path": "/docs", "title": "Library" },
+    { "path": "/docs/system-design", "title": "System Design" },
+    { "path": "/docs/system-design/:slug", "title": "System Design Chapter" },
+    { "path": "/docs/system-design/:slug/:view", "title": "System Design Reader" },
+    { "path": "/flashcards", "title": "Flash Cards" },
+    { "path": "/flashcards/:deck", "title": "Flash Card Deck" }
+  ]
+}

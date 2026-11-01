@@ -74,7 +74,7 @@ export default function Home() {
           <nav className="hidden items-center gap-7 font-mono text-[11px] font-medium uppercase tracking-[0.11em] text-[#13221e]/70 lg:flex" aria-label="Primary navigation">
             <a className="nav-link" href="/docs">Library</a>
             <a className="nav-link" href="/flashcards">Flash cards</a>
-            <a className="nav-link" href="#terms">Terms</a>
+            <a className="nav-link" href="/terms">Terms</a>
             <a className="nav-link" href="#collaborate">Collaborate</a>
           </nav>
           <div className="flex items-center gap-3">
@@ -161,7 +161,7 @@ export default function Home() {
                 </a>
               )}
               {["Library", "Flash cards", "Terms", "Collaborate"].map((item, index) => (
-                <a key={item} href={["/docs", "/flashcards", "#terms", "#collaborate"][index]} onClick={() => setMobileOpen(false)} className="flex items-center justify-between border-b border-[#13221e]/10 py-4">
+                <a key={item} href={["/docs", "/flashcards", "/terms", "#collaborate"][index]} onClick={() => setMobileOpen(false)} className="flex items-center justify-between border-b border-[#13221e]/10 py-4">
                   {item} <ArrowDownRight size={16} />
                 </a>
               ))}
@@ -314,7 +314,7 @@ export default function Home() {
                   <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#e66b5b]">Concept of the day</p>
                   <h3 className="mt-5 font-display text-6xl leading-none tracking-[-0.07em] sm:text-7xl">CAP<br /><i>Theorem</i></h3>
                   <p className="mt-6 max-w-lg font-body leading-7 text-[#f7f5ef]/70">A framework for seeing the unavoidable trade-offs between consistency, availability, and partition tolerance in a distributed system.</p>
-                  <a href="#terms" className="mt-8 inline-flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#e66b5b]">Open explanation <ArrowRight size={15} /></a>
+                  <a href="/terms?q=CAP%20Theorem" className="mt-8 inline-flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.13em] text-[#e66b5b]">Open explanation <ArrowRight size={15} /></a>
                 </div>
               </div>
               <div className="dark-coral-index relative bg-[#e66b5b] p-6 sm:p-9">
@@ -322,7 +322,7 @@ export default function Home() {
                 <div className="mt-20">
                   <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#13221e]/60">Frequently connected</p>
                   <ul className="mt-6 divide-y divide-[#13221e]/20">
-                    {terms.map((term, index) => <li key={term}><a href="#terms" className="group flex items-center justify-between gap-4 py-4 font-display text-[26px] tracking-[-0.04em] transition-transform hover:translate-x-1"><span>{term}</span><span className="font-mono text-[10px] tracking-normal">0{index + 1}</span><ArrowDownRight size={17} className="opacity-0 transition-opacity group-hover:opacity-100" /></a></li>)}
+                    {terms.map((term, index) => <li key={term}><a href={`/terms?q=${encodeURIComponent(term)}`} className="group flex items-center justify-between gap-4 py-4 font-display text-[26px] tracking-[-0.04em] transition-transform hover:translate-x-1"><span>{term}</span><span className="font-mono text-[10px] tracking-normal">0{index + 1}</span><ArrowDownRight size={17} className="opacity-0 transition-opacity group-hover:opacity-100" /></a></li>)}
                   </ul>
                 </div>
               </div>
@@ -371,7 +371,7 @@ export default function Home() {
         <div className="site-shell border-t border-[#f7f5ef]/15 py-8">
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <a className="flex items-center gap-3" href="#top"><img src="explainbytes-mark.png" className="h-9 w-9" alt="" /><span className="font-display text-2xl tracking-[-0.05em]">Explain Bytes</span></a>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#f7f5ef]/58"><a href="#library" className="hover:text-[#e66b5b]">Docs</a><a href="/flashcards" className="hover:text-[#e66b5b]">Practice</a><a href="#terms" className="hover:text-[#e66b5b]">Terms</a><a href="https://github.com/Eyepatch5263" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-[#e66b5b]"><Github size={14} /> GitHub</a></div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#f7f5ef]/58"><a href="#library" className="hover:text-[#e66b5b]">Docs</a><a href="/flashcards" className="hover:text-[#e66b5b]">Practice</a><a href="/terms" className="hover:text-[#e66b5b]">Terms</a><a href="https://github.com/Eyepatch5263" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-[#e66b5b]"><Github size={14} /> GitHub</a></div>
           </div>
           <div className="mt-10 flex flex-col justify-between gap-3 border-t border-[#f7f5ef]/10 pt-4 font-mono text-[9px] uppercase tracking-[0.12em] text-[#f7f5ef]/40 sm:flex-row"><span>© 2026 Explain Bytes</span><span>Trace the idea. Keep the system.</span></div>
         </div>

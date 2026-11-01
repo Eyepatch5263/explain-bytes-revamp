@@ -13,6 +13,7 @@ const Flashcards = lazy(() => import("./pages/Flashcards"));
 const FlashDocs = lazy(() => import("./pages/FlashDocs"));
 const SystemDesignReader = lazy(() => import("./pages/SystemDesignReader"));
 const Login = lazy(() => import("./pages/Login"));
+const EngineeringTerms = lazy(() => import("./pages/EngineeringTerms"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function Router() {
@@ -51,6 +52,9 @@ function Router() {
       {/* Public routes */}
       <Route path={"/"} component={Home} />
       <Route path="/login" component={Login} />
+      <Route path="/signup" component={Login} />
+      <Route path="/terms" component={EngineeringTerms} />
+      <Route path="/engineering-terms" component={EngineeringTerms} />
 
       {/* Protected routes */}
       <Route path="/docs" component={ProtectedFlashDocs} />

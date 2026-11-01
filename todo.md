@@ -93,3 +93,16 @@
 - [x] Show resume cues, percentages, and completion badges in the Flash Docs library.
 - [x] Add a homepage Resume Reading CTA for incomplete chapters.
 - [x] Verify desktop/mobile layouts, light/dark themes, TypeScript, tests, and production build.
+
+# Engineering Terms Search Route
+
+- [x] Build a responsive `/terms` glossary with category browsing, keyboard search, term details, and light/dark theme support.
+- [x] Add public Elasticsearch-backed search with Redis result caching and a bundled starter-index fallback without changing Better Auth or PostgreSQL.
+- [x] Configure local Elasticsearch/Redis development services, document setup, and cover the supplied record shape with regression tests.
+- [x] Verify TypeScript, the production build, and the complete test suite.
+
+# Editorial Auth Pages
+
+- [x] Restyle sign-in and registration to match the paper/ink/coral design system in both themes.
+- [x] Add a direct `/signup` route while preserving existing Better Auth handlers, fields, and redirect behavior.
+- [x] Verify TypeScript, the production build, and the complete test suite.

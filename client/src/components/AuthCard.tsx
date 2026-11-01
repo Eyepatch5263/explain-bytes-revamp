@@ -1,18 +1,20 @@
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Github, Loader2 } from "lucide-react";
 
 interface AuthCardProps {
   onSuccess?: () => void;
   className?: string;
+  initialMode?: "signin" | "signup";
 }
 
-export function AuthCard({ onSuccess, className }: AuthCardProps) {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+export function AuthCard({ onSuccess, className, initialMode = "signin" }: AuthCardProps) {
+  const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -33,7 +35,7 @@ export function AuthCard({ onSuccess, className }: AuthCardProps) {
     }
   };
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleEmailAuth = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -71,29 +73,27 @@ export function AuthCard({ onSuccess, className }: AuthCardProps) {
   };
 
   return (
-    <Card className={`w-full max-w-md mx-auto shadow-lg border border-border/60 ${className ?? ""}`}>
-      <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-2xl font-bold tracking-tight">
-          {mode === "signin" ? "Sign in to ExplainBytes" : "Create your account"}
+    <Card className={`auth-card-shell ${className ?? ""}`}>
+      <CardHeader className="auth-card-header">
+        <span className="auth-card-eyebrow">EXPLAIN BYTES / ACCOUNT</span>
+        <CardTitle className="auth-card-title">
+          {mode === "signin" ? "Welcome back." : "Make it yours."}
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="auth-card-description">
           {mode === "signin"
-            ? "Enter your email or continue with a provider"
-            : "Get started with your ExplainBytes account"}
+            ? "Sign in to pick up where your next good idea starts."
+            : "Create an account to keep your reading and practice in one place."}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {error && (
-          <div className="p-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-md">
-            {error}
-          </div>
-        )}
 
-        <div className="grid grid-cols-2 gap-3">
+      <CardContent className="auth-card-content">
+        {error && <div className="auth-error" role="alert">{error}</div>}
+
+        <div className="auth-provider-grid">
           <Button
             type="button"
             variant="outline"
-            className="w-full flex items-center justify-center gap-2"
+            className="auth-provider-button"
             disabled={loading}
             onClick={() => handleSocialLogin("github")}
           >
@@ -103,11 +103,11 @@ export function AuthCard({ onSuccess, className }: AuthCardProps) {
           <Button
             type="button"
             variant="outline"
-            className="w-full flex items-center justify-center gap-2"
+            className="auth-provider-button"
             disabled={loading}
             onClick={() => handleSocialLogin("google")}
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 fill="#4285F4"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -129,32 +129,29 @@ export function AuthCard({ onSuccess, className }: AuthCardProps) {
           </Button>
         </div>
 
-        <div className="relative my-2">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-border" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">or continue with email</span>
-          </div>
+        <div className="auth-divider">
+          <span />
+          <p>OR CONTINUE WITH EMAIL</p>
         </div>
 
-        <form onSubmit={handleEmailAuth} className="space-y-3">
+        <form onSubmit={handleEmailAuth} className="auth-email-form">
           {mode === "signup" && (
-            <div className="space-y-1">
-              <Label htmlFor="auth-name">Name</Label>
+            <div className="auth-field">
+              <Label htmlFor="auth-name" className="auth-label">Name</Label>
               <Input
                 id="auth-name"
                 type="text"
-                placeholder="Your Name"
+                placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required={mode === "signup"}
                 disabled={loading}
+                className="auth-input"
               />
             </div>
           )}
-          <div className="space-y-1">
-            <Label htmlFor="auth-email">Email</Label>
+          <div className="auth-field">
+            <Label htmlFor="auth-email" className="auth-label">Email</Label>
             <Input
               id="auth-email"
               type="email"
@@ -163,10 +160,11 @@ export function AuthCard({ onSuccess, className }: AuthCardProps) {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading}
+              className="auth-input"
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="auth-password">Password</Label>
+          <div className="auth-field">
+            <Label htmlFor="auth-password" className="auth-label">Password</Label>
             <Input
               id="auth-password"
               type="password"
@@ -175,28 +173,30 @@ export function AuthCard({ onSuccess, className }: AuthCardProps) {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={loading}
+              className="auth-input"
             />
           </div>
 
-          <Button type="submit" className="w-full mt-4" disabled={loading}>
+          <Button type="submit" className="auth-submit-button" disabled={loading}>
             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {mode === "signin" ? "Sign In" : "Create Account"}
+            {mode === "signin" ? "Sign in" : "Create account"}
           </Button>
         </form>
+        <p className="auth-card-note">Secure sign-in, powered by Better Auth.</p>
       </CardContent>
 
-      <CardFooter className="flex justify-center border-t border-border/50 py-3">
-        <p className="text-xs text-muted-foreground">
-          {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
+      <CardFooter className="auth-card-footer">
+        <p className="auth-switch-copy">
+          {mode === "signin" ? "New to Explain Bytes? " : "Already have an account? "}
           <button
             type="button"
-            className="text-primary hover:underline font-medium"
+            className="auth-mode-link"
             onClick={() => {
               setError(null);
               setMode(mode === "signin" ? "signup" : "signin");
             }}
           >
-            {mode === "signin" ? "Sign up" : "Sign in"}
+            {mode === "signin" ? "Create an account" : "Sign in"}
           </button>
         </p>
       </CardFooter>
