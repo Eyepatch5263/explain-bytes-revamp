@@ -2,13 +2,15 @@
  * Marginalia Lab design reminder: this route is a focused study room—quiet ink surfaces,
  * coral learning signals, and a single clear path back to the broader Explain Bytes library.
  */
-import { ArrowLeft, ArrowRight, Moon, Sun } from "lucide-react";
+import { ArrowLeft, ArrowRight, LogOut, Moon, Sun } from "lucide-react";
 import { FlashcardDeck } from "@/components/FlashcardDeck";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
 import { deckOrder, flashcardDecks, getFlashcardDeck, type DeckSlug } from "@/data/flashcardDecks";
 
 export default function Flashcards({ deckSlug }: { deckSlug?: string }) {
   const { theme, toggleTheme } = useTheme();
+  const { user, logout } = useAuth();
   const activeDeck = getFlashcardDeck(deckSlug);
 
   return (
@@ -17,7 +19,20 @@ export default function Flashcards({ deckSlug }: { deckSlug?: string }) {
         <div className="site-shell flex h-[74px] items-center justify-between gap-4">
           <a href="/" className="group inline-flex items-center gap-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors hover:text-[#e66b5b]" aria-label="Return to Explain Bytes homepage"><ArrowLeft size={16} className="transition-transform duration-200 group-hover:-translate-x-1" /> Back to library</a>
           <div className="hidden text-center sm:block"><p className="font-display text-[26px] leading-none tracking-[-0.05em]">Flash card study room</p><p className="mt-1 font-mono text-[9px] uppercase tracking-[0.13em] text-[#13221e]/50">Explain Bytes / {activeDeck.title}</p></div>
-          <button onClick={toggleTheme} className="theme-toggle inline-flex h-10 items-center gap-2 rounded-full border border-[#13221e]/15 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>{theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}<span>{theme === "dark" ? "Light" : "Dark"}</span></button>
+          <div className="flex items-center gap-3">
+            {user && (
+              <span className="hidden md:inline font-mono text-[10px] text-[#13221e]/60">{user.name || user.email}</span>
+            )}
+            <button
+              onClick={() => logout()}
+              className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-[#e66b5b] hover:underline"
+              title="Log out"
+            >
+              <LogOut size={13} />
+              <span className="hidden sm:inline">Log out</span>
+            </button>
+            <button onClick={toggleTheme} className="theme-toggle inline-flex h-10 items-center gap-2 rounded-full border border-[#13221e]/15 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>{theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}<span>{theme === "dark" ? "Light" : "Dark"}</span></button>
+          </div>
         </div>
       </header>
       <main>

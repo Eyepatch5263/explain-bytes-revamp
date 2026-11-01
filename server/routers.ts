@@ -1,18 +1,22 @@
-import { COOKIE_NAME } from "@shared/const";
+import { fromNodeHeaders } from "better-auth/node";
+import { auth } from "./lib/auth";
 import { z } from "zod";
 import { getChapterAudio } from "./chapterAudio";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+    logout: publicProcedure.mutation(async ({ ctx }) => {
+      try {
+        await auth.api.signOut({
+          headers: fromNodeHeaders(ctx.req.headers),
+        });
+      } catch (err) {
+        console.warn("[Auth] Sign out error:", err);
+      }
       return {
         success: true,
       } as const;

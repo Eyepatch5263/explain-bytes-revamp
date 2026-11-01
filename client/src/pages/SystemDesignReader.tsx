@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, ExternalLink, Menu, Network, PanelLeftClose, X, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, ExternalLink, LogOut, Menu, Network, PanelLeftClose, X, Zap } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import DatabaseSimulationWrapper from "@/components/simulations/system-design/database/database-simulation-wrapper";
 import DnsSimulationWrapper from "@/components/simulations/system-design/dns/dns-simulation-wrapper";
 import SimulationDashboard from "@/components/simulations/system-design/load-balancing/simulation-dashboard";
@@ -22,6 +23,7 @@ const Simulation = ({ slug }: { slug: string }) => {
 };
 
 export default function SystemDesignReader({ slug = "introduction", view }: SystemDesignReaderProps) {
+  const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const articleRef = useRef<HTMLElement | null>(null);
   const doc = getSystemDesignDoc(slug) ?? systemDesignDocs[0];
@@ -55,7 +57,21 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
       <header className="flashdocs-reader-topbar">
         <a className="flashdocs-wordmark" href="/"><i /><i /><i /> Explain Bytes</a>
         <div className="flashdocs-reader-context"><BookOpen size={15} /> Flash docs <span>/</span> System Design</div>
-        <div className="flashdocs-reader-actions"><a href="/flashcards">Practice</a><button type="button" onClick={() => setSidebarOpen(true)}><Menu size={17} /> Chapters</button></div>
+        <div className="flashdocs-reader-actions">
+          <a href="/flashcards">Practice</a>
+          {user && (
+            <button
+              type="button"
+              onClick={() => logout()}
+              title="Log out"
+              className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-[#e66b5b] hover:opacity-80 transition-opacity"
+            >
+              <LogOut size={13} />
+              <span className="hidden md:inline">Log out</span>
+            </button>
+          )}
+          <button type="button" onClick={() => setSidebarOpen(true)}><Menu size={17} /> Chapters</button>
+        </div>
       </header>
 
       <div className="flashdocs-reader-layout">

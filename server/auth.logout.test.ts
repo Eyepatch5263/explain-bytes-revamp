@@ -1,62 +1,45 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
-import { COOKIE_NAME } from "../shared/const";
 import type { TrpcContext } from "./_core/context";
-
-type CookieCall = {
-  name: string;
-  options: Record<string, unknown>;
-};
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
-function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] } {
-  const clearedCookies: CookieCall[] = [];
-
+function createAuthContext(): TrpcContext {
   const user: AuthenticatedUser = {
-    id: 1,
-    openId: "sample-user",
+    id: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
     email: "sample@example.com",
     name: "Sample User",
-    loginMethod: "manus",
+    avatarUrl: null,
+    oauthProvider: "github",
+    emailVerified: true,
     role: "user",
     createdAt: new Date(),
     updatedAt: new Date(),
-    lastSignedIn: new Date(),
+    lastLogin: new Date(),
+    verificationToken: null,
+    verificationTokenExpires: null,
+    passwordHash: null,
   };
 
-  const ctx: TrpcContext = {
+  return {
     user,
+    session: null,
     req: {
       protocol: "https",
       headers: {},
     } as TrpcContext["req"],
     res: {
-      clearCookie: (name: string, options: Record<string, unknown>) => {
-        clearedCookies.push({ name, options });
-      },
+      clearCookie: () => {},
     } as TrpcContext["res"],
   };
-
-  return { ctx, clearedCookies };
 }
 
 describe("auth.logout", () => {
-  it("clears the session cookie and reports success", async () => {
-    const { ctx, clearedCookies } = createAuthContext();
+  it("reports success on logout", async () => {
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.auth.logout();
-
     expect(result).toEqual({ success: true });
-    expect(clearedCookies).toHaveLength(1);
-    expect(clearedCookies[0]?.name).toBe(COOKIE_NAME);
-    expect(clearedCookies[0]?.options).toMatchObject({
-      maxAge: -1,
-      secure: true,
-      sameSite: "none",
-      httpOnly: true,
-      path: "/",
-    });
   });
 });

@@ -1,17 +1,34 @@
-import { ArrowRight, BookOpen, Code2, Network, PanelLeftOpen, Server, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, Code2, LogOut, Network, PanelLeftOpen, Server, Sparkles } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useReadingProgressMap } from "@/hooks/useReadingProgress";
 import { getSystemDesignCategories, systemDesignDocs, systemDesignSourceMeta } from "@/lib/systemDesignDocs";
 
 export default function FlashDocs() {
+  const { user, logout } = useAuth();
   const categories = getSystemDesignCategories();
   const progressMap = useReadingProgressMap();
   const resumeDoc = systemDesignDocs.find((doc) => progressMap[doc.slug] && !progressMap[doc.slug].completed);
 
   return (
     <main className="flashdocs-library-page">
-      <header className="flashdocs-library-header">
+      <header className="flashdocs-library-header flex items-center justify-between">
         <a className="flashdocs-back" href="/">← Explain Bytes</a>
-        <a className="flashdocs-library-flashcards" href="/flashcards">Flash cards <ArrowRight size={14} /></a>
+        <div className="flex items-center gap-4">
+          {user && (
+            <span className="hidden sm:inline font-mono text-[11px] text-[#13221e]/70">
+              {user.name || user.email}
+            </span>
+          )}
+          <button
+            onClick={() => logout()}
+            className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-[#e66b5b] hover:opacity-80 transition-opacity"
+            title="Log out"
+          >
+            <LogOut size={13} />
+            <span className="hidden sm:inline">Log out</span>
+          </button>
+          <a className="flashdocs-library-flashcards" href="/flashcards">Flash cards <ArrowRight size={14} /></a>
+        </div>
       </header>
 
       <section className="flashdocs-library-hero">

@@ -16,6 +16,8 @@ import {
   FileText,
   Github,
   Layers3,
+  LogIn,
+  LogOut,
   Menu,
   Moon,
   Network,
@@ -26,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useReadingProgressMap } from "@/hooks/useReadingProgress";
 import { systemDesignDocs } from "@/lib/systemDesignDocs";
@@ -42,6 +45,7 @@ const terms = ["Idempotency", "Quorum", "B+ Tree", "Deadlock", "Rate limiting", 
 
 export default function Home() {
   const { theme, toggleTheme } = useTheme();
+  const { user, isAuthenticated, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSubject, setActiveSubject] = useState("System Design");
   const [email, setEmail] = useState("");
@@ -64,7 +68,7 @@ export default function Home() {
       <header className="dark-header relative z-30 border-b border-[#13221e]/10 bg-[#f3f0e8]/95 backdrop-blur">
         <div className="site-shell flex h-[74px] items-center justify-between gap-6">
           <a className="group flex shrink-0 items-center gap-3" href="#top" aria-label="Explain Bytes home">
-            <img src="/manus-storage/explainbytes-mark_4502821d.png" className="h-10 w-10 transition-transform duration-300 group-hover:rotate-[-7deg]" alt="Explain Bytes signal mark" />
+            <img src="explainbytes-mark.webp" className="h-10 w-10 transition-transform duration-300 group-hover:rotate-[-7deg]" alt="Explain Bytes signal mark" />
             <span className="font-display text-[28px] leading-none tracking-[-0.05em]">Explain Bytes</span>
           </a>
           <nav className="hidden items-center gap-7 font-mono text-[11px] font-medium uppercase tracking-[0.11em] text-[#13221e]/70 lg:flex" aria-label="Primary navigation">
@@ -73,19 +77,89 @@ export default function Home() {
             <a className="nav-link" href="#terms">Terms</a>
             <a className="nav-link" href="#collaborate">Collaborate</a>
           </nav>
-          <button onClick={toggleTheme} className="theme-toggle hidden h-10 items-center gap-2 rounded-full border border-[#13221e]/15 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
-            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}<span>{theme === "dark" ? "Light" : "Dark"}</span>
-          </button>
-          <a className="hidden items-center gap-2 rounded-full bg-[#13221e] px-5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-[#f3f0e8] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" href="/docs">
-            Begin learning <ArrowRight size={14} />
-          </a>
-          <button className="grid h-10 w-10 place-items-center rounded-full border border-[#13221e]/15 lg:hidden" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle navigation" aria-expanded={mobileOpen}>
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={toggleTheme} className="theme-toggle hidden h-10 items-center gap-2 rounded-full border border-[#13221e]/15 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}<span>{theme === "dark" ? "Light" : "Dark"}</span>
+            </button>
+
+            {isAuthenticated ? (
+              <div className="hidden sm:flex items-center gap-3">
+                <div className="flex items-center gap-2 font-mono text-[11px] text-[#13221e]/80">
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} alt={user.name || "User"} className="h-7 w-7 rounded-full border border-[#13221e]/20 object-cover" />
+                  ) : (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#13221e] font-mono text-[10px] font-bold text-[#f3f0e8]">
+                      {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+                    </div>
+                  )}
+                  <span className="max-w-[110px] truncate font-medium">{user?.name || user?.email}</span>
+                </div>
+                <button
+                  onClick={() => logout()}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#13221e]/20 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-[#13221e]/80 transition-all hover:bg-[#13221e]/5 active:scale-[0.97]"
+                  title="Log out"
+                >
+                  <LogOut size={13} />
+                  <span>Log out</span>
+                </button>
+                <a className="hidden items-center gap-2 rounded-full bg-[#13221e] px-4 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-[#f3f0e8] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] md:flex" href="/docs">
+                  Library <ArrowRight size={14} />
+                </a>
+              </div>
+            ) : (
+              <div className="hidden sm:flex items-center gap-3">
+                <a
+                  href="/login"
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#13221e]/20 px-4 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-[#13221e] transition-all hover:bg-[#13221e]/5 active:scale-[0.97]"
+                >
+                  <LogIn size={14} />
+                  <span>Sign in</span>
+                </a>
+                <a className="hidden items-center gap-2 rounded-full bg-[#13221e] px-5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-[#f3f0e8] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] md:flex" href="/login">
+                  Get started <ArrowRight size={14} />
+                </a>
+              </div>
+            )}
+            <button className="grid h-10 w-10 place-items-center rounded-full border border-[#13221e]/15 lg:hidden" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle navigation" aria-expanded={mobileOpen}>
+              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
         {mobileOpen && (
           <nav className="border-t border-[#13221e]/10 bg-[#f3f0e8] px-5 py-5 lg:hidden" aria-label="Mobile navigation">
             <div className="site-shell flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.1em]">
+              {isAuthenticated ? (
+                <div className="flex items-center justify-between border-b border-[#13221e]/10 py-4">
+                  <div className="flex items-center gap-2.5">
+                    {user?.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="" className="h-7 w-7 rounded-full object-cover" />
+                    ) : (
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#13221e] text-[11px] text-[#f3f0e8]">
+                        {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+                      </div>
+                    )}
+                    <span className="font-semibold text-[#13221e] truncate max-w-[150px]">{user?.name || user?.email}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      logout();
+                      setMobileOpen(false);
+                    }}
+                    className="inline-flex items-center gap-1.5 text-[#e66b5b] font-bold"
+                  >
+                    <LogOut size={14} /> Log out
+                  </button>
+                </div>
+              ) : (
+                <a
+                  href="/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center justify-between border-b border-[#13221e]/10 py-4 font-bold text-[#e66b5b]"
+                >
+                  <span className="flex items-center gap-2"><LogIn size={16} /> Sign in / Register</span>
+                  <ArrowRight size={16} />
+                </a>
+              )}
               {["Library", "Flash cards", "Terms", "Collaborate"].map((item, index) => (
                 <a key={item} href={["/docs", "/flashcards", "#terms", "#collaborate"][index]} onClick={() => setMobileOpen(false)} className="flex items-center justify-between border-b border-[#13221e]/10 py-4">
                   {item} <ArrowDownRight size={16} />
@@ -101,7 +175,7 @@ export default function Home() {
 
       <main id="top">
         <section className="dark-hero relative isolate overflow-hidden border-b border-[#13221e]/10">
-          <ImageWithPlaceholder src="/manus-storage/explainbytes-hero-system-coral_0b3da7d0.png" previewSrc="/manus-storage/hero_3a623303.webp" alt="Abstract connected systems map on drafting paper" containerClassName="dark-hero-image-shell absolute inset-0 -z-20" className="dark-hero-image object-cover object-[61%_50%] opacity-95" />
+          <ImageWithPlaceholder src="explainbytes-hero-system-coral.png" previewSrc="/hero.webp" alt="Abstract connected systems map on drafting paper" containerClassName="dark-hero-image-shell absolute inset-0 -z-20" className="dark-hero-image object-cover object-[61%_50%] opacity-95" />
           <div className="dark-hero-overlay absolute inset-0 -z-10 bg-gradient-to-r from-[#f3f0e8] via-[#f3f0e8]/90 to-[#f3f0e8]/5" />
           <div className="site-shell relative min-h-[690px] py-7 lg:min-h-[730px] lg:py-9">
             <div className="editorial-rail absolute bottom-0 left-0 top-0 hidden w-12 border-r border-[#13221e]/10 xl:block" aria-hidden="true">
@@ -171,7 +245,7 @@ export default function Home() {
 
             <div className="mt-14 grid gap-6 lg:grid-cols-[1.12fr_0.88fr]">
               <article className="group relative min-h-[480px] overflow-hidden bg-[#d9e2da] p-6 sm:p-9">
-                <ImageWithPlaceholder src="/manus-storage/explainbytes-docs-study-coral_ac39ca1b.png" previewSrc="/manus-storage/study_16edf5d6.webp" alt="Abstract engineering study diagram" loading="lazy" containerClassName="dark-study-image-shell absolute inset-0" className="object-cover mix-blend-multiply transition-transform duration-700 group-hover:scale-[1.035]" />
+                <ImageWithPlaceholder src="explainbytes-docs-study-coral.png" alt="Abstract engineering study diagram" loading="lazy" containerClassName="dark-study-image-shell absolute inset-0" className="object-cover mix-blend-multiply transition-transform duration-700 group-hover:scale-[1.035]" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#13221e]/76 via-[#13221e]/10 to-transparent" />
                 <div className="relative flex h-full flex-col justify-between text-[#f7f5ef]">
                   <div className="flex items-start justify-between gap-5">
@@ -267,7 +341,7 @@ export default function Home() {
             </div>
             <div className="relative">
               <div className="absolute -right-7 -top-8 h-44 w-44 rounded-full border border-[#13221e]/20" aria-hidden="true" />
-              <ImageWithPlaceholder src="/manus-storage/explainbytes-collaboration-notes-coral_6726963d.png" previewSrc="/manus-storage/collab_f916603d.webp" alt="Abstract collaborative engineering manuscript with connected annotation marks" loading="lazy" containerClassName="dark-collab-image-shell relative z-10 min-h-[370px] w-full sm:min-h-[450px]" className="object-cover" />
+              <ImageWithPlaceholder src="collab.png" alt="Abstract collaborative engineering manuscript with connected annotation marks" loading="lazy" containerClassName="dark-collab-image-shell relative z-10 min-h-[370px] w-full sm:min-h-[450px]" className="object-cover" />
               <div className="dark-collab-note relative z-20 -mt-20 ml-auto mr-5 max-w-sm bg-[#f7f5ef] p-5 shadow-[7px_7px_0_#13221e] sm:mr-10 sm:p-6">
                 <div className="flex items-center justify-between border-b border-[#13221e]/15 pb-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#13221e]/58"><span>Shared manuscript</span><span>Live</span></div>
                 <p className="mt-4 font-display text-2xl leading-[0.95] tracking-[-0.04em]">“The cache is not the source of truth.”</p>
@@ -296,7 +370,7 @@ export default function Home() {
       <footer className="bg-[#13221e] text-[#f7f5ef]">
         <div className="site-shell border-t border-[#f7f5ef]/15 py-8">
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
-            <a className="flex items-center gap-3" href="#top"><img src="/manus-storage/explainbytes-mark_4502821d.png" className="h-9 w-9" alt="" /><span className="font-display text-2xl tracking-[-0.05em]">Explain Bytes</span></a>
+            <a className="flex items-center gap-3" href="#top"><img src="explainbytes-mark.png" className="h-9 w-9" alt="" /><span className="font-display text-2xl tracking-[-0.05em]">Explain Bytes</span></a>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#f7f5ef]/58"><a href="#library" className="hover:text-[#e66b5b]">Docs</a><a href="/flashcards" className="hover:text-[#e66b5b]">Practice</a><a href="#terms" className="hover:text-[#e66b5b]">Terms</a><a href="https://github.com/Eyepatch5263" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-[#e66b5b]"><Github size={14} /> GitHub</a></div>
           </div>
           <div className="mt-10 flex flex-col justify-between gap-3 border-t border-[#f7f5ef]/10 pt-4 font-mono text-[9px] uppercase tracking-[0.12em] text-[#f7f5ef]/40 sm:flex-row"><span>© 2026 Explain Bytes</span><span>Trace the idea. Keep the system.</span></div>
