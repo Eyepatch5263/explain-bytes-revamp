@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, ExternalLink, Menu, Network, PanelLeftClose, X, Zap } from "lucide-react";
 import DatabaseSimulationWrapper from "@/components/simulations/system-design/database/database-simulation-wrapper";
 import DnsSimulationWrapper from "@/components/simulations/system-design/dns/dns-simulation-wrapper";
 import SimulationDashboard from "@/components/simulations/system-design/load-balancing/simulation-dashboard";
 import { ChapterAudioPlayer } from "@/components/docs/ChapterAudioPlayer";
 import { systemDesignMdxComponents } from "@/components/docs/SystemDesignMdxComponents";
+import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { getChapterHeadings, getSystemDesignCategories, getSystemDesignDoc, simulationSlugs, systemDesignDocs } from "@/lib/systemDesignDocs";
 import "./systemDesignReaderWide.css";
 
@@ -22,6 +23,7 @@ const Simulation = ({ slug }: { slug: string }) => {
 
 export default function SystemDesignReader({ slug = "introduction", view }: SystemDesignReaderProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const articleRef = useRef<HTMLElement | null>(null);
   const doc = getSystemDesignDoc(slug) ?? systemDesignDocs[0];
   const categories = getSystemDesignCategories();
   const headings = useMemo(() => getChapterHeadings(doc.source), [doc.source]);
@@ -30,6 +32,7 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
   const next = chapterIndex < systemDesignDocs.length - 1 ? systemDesignDocs[chapterIndex + 1] : null;
   const isSimulation = view === "simulation" && simulationSlugs.has(doc.slug);
   const MdxContent = doc.Component;
+  const { percent, completed } = useReadingProgress({ slug: doc.slug, containerRef: articleRef });
 
   const chapterRail = (
     <nav className="flashdocs-reader-rail" aria-label="System Design chapter navigation">
@@ -62,7 +65,7 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
           {chapterRail}
         </div>
 
-        <article className="flashdocs-article">
+        <article className="flashdocs-article" ref={articleRef}>
           <a className="flashdocs-breadcrumb" href="/docs"><ArrowLeft size={15} /> Flash Docs / System Design</a>
           {isSimulation ? (
             <>
@@ -83,6 +86,10 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
                 <div className="flashdocs-chapter-tools">
                   {simulationSlugs.has(doc.slug) && <a href={`/docs/system-design/${doc.slug}/simulation`}><Zap size={15} /> Open simulation <ExternalLink size={13} /></a>}
                   <ChapterAudioPlayer slug={doc.slug} title={doc.title} />
+                </div>
+                <div className="flashdocs-reading-progress" aria-label={`${percent}% of this chapter read`}>
+                  <div className="flashdocs-reading-progress-meta"><span>{completed ? "Chapter complete" : percent ? `${percent}% read` : "Start reading"}</span><span>{completed ? "✓ saved" : "Progress saves automatically"}</span></div>
+                  <div className="flashdocs-reading-progress-track"><span style={{ width: `${percent}%` }} /></div>
                 </div>
               </header>
 

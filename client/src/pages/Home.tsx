@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useReadingProgressMap } from "@/hooks/useReadingProgress";
+import { systemDesignDocs } from "@/lib/systemDesignDocs";
 
 const subjects = [
   { code: "01", title: "System Design", blurb: "Make trade-offs visible before you make them.", icon: Network, color: "blue" },
@@ -43,6 +45,8 @@ export default function Home() {
   const [activeSubject, setActiveSubject] = useState("System Design");
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const progressMap = useReadingProgressMap();
+  const resumeDoc = systemDesignDocs.find((doc) => progressMap[doc.slug] && !progressMap[doc.slug].completed);
 
   const submitNewsletter = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -132,6 +136,18 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {resumeDoc && (
+          <section className="resume-reading-banner" aria-label="Resume reading">
+            <div className="site-shell flex flex-col gap-5 py-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-4">
+                <span className="resume-reading-mark"><BookOpen size={17} /></span>
+                <div><p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#e66b5b]">Saved reading progress</p><p className="mt-1 font-display text-2xl tracking-[-0.04em]">Return to <em>{resumeDoc.title}</em></p></div>
+              </div>
+              <a href={`/docs/system-design/${resumeDoc.slug}`} className="inline-flex items-center gap-2 self-start border-b border-[#e66b5b] pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#e66b5b] sm:self-auto">Resume at {Math.round(progressMap[resumeDoc.slug].ratio * 100)}% <ArrowRight size={15} /></a>
+            </div>
+          </section>
+        )}
 
         <section className="relative border-b border-[#13221e]/10 bg-[#13221e] text-[#f3f0e8]">
           <div className="site-shell grid gap-8 py-7 md:grid-cols-[0.7fr_1.3fr] md:items-center md:py-0">

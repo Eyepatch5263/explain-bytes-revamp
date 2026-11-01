@@ -1,8 +1,11 @@
 import { ArrowRight, BookOpen, Code2, Network, PanelLeftOpen, Server, Sparkles } from "lucide-react";
+import { useReadingProgressMap } from "@/hooks/useReadingProgress";
 import { getSystemDesignCategories, systemDesignDocs, systemDesignSourceMeta } from "@/lib/systemDesignDocs";
 
 export default function FlashDocs() {
   const categories = getSystemDesignCategories();
+  const progressMap = useReadingProgressMap();
+  const resumeDoc = systemDesignDocs.find((doc) => progressMap[doc.slug] && !progressMap[doc.slug].completed);
 
   return (
     <main className="flashdocs-library-page">
@@ -23,6 +26,13 @@ export default function FlashDocs() {
           <span><strong>03</strong> live sandboxes</span>
           <span><strong>MDX</strong> native reading</span>
         </div>
+        {resumeDoc && (
+          <a className="flashdocs-resume-card" href={`/docs/system-design/${resumeDoc.slug}`}>
+            <span className="flashdocs-resume-card-kicker">Pick up where you left off</span>
+            <strong>{resumeDoc.title}</strong>
+            <span className="flashdocs-resume-card-meta">{Math.round(progressMap[resumeDoc.slug].ratio * 100)}% complete <ArrowRight size={14} /></span>
+          </a>
+        )}
       </section>
 
       <section className="flashdocs-catalogue" aria-labelledby="catalogue-heading">
@@ -43,7 +53,8 @@ export default function FlashDocs() {
                 {docs.map((doc) => (
                   <a href={`/docs/system-design/${doc.slug}`} className="flashdocs-chapter-link" key={doc.slug}>
                     <span className="flashdocs-chapter-number">{String(doc.order).padStart(2, "0")}</span>
-                    <span><strong>{doc.title}</strong><small>{doc.description}</small></span>
+                    <span><strong>{doc.title}{progressMap[doc.slug]?.completed && <em className="flashdocs-complete-badge">Complete</em>}</strong><small>{doc.description}</small></span>
+                    {progressMap[doc.slug] && !progressMap[doc.slug].completed && <span className="flashdocs-chapter-progress" aria-label={`${Math.round(progressMap[doc.slug].ratio * 100)} percent read`}><i style={{ width: `${Math.round(progressMap[doc.slug].ratio * 100)}%` }} /><small>{Math.round(progressMap[doc.slug].ratio * 100)}%</small></span>}
                     <ArrowRight size={17} aria-hidden="true" />
                   </a>
                 ))}

@@ -85,3 +85,11 @@
 - [x] Add tests and verify loading states in light, dark, desktop, and mobile presentations.
 - [x] Capture the shared skeleton in light and dark themes at desktop and mobile breakpoints.
 - [x] Verify the chapter-audio pending control remains readable and announces its state in both themes.
+
+# Saved Reading Progress
+
+- [x] Add account-free localStorage progress records with safe browser/server boundaries.
+- [x] Restore chapter scroll position and persist progress while reading.
+- [x] Show resume cues, percentages, and completion badges in the Flash Docs library.
+- [x] Add a homepage Resume Reading CTA for incomplete chapters.
+- [x] Verify desktop/mobile layouts, light/dark themes, TypeScript, tests, and production build.
