@@ -2,7 +2,12 @@
 .image-placeholder:not(.absolute) { position: relative; }
 .image-placeholder > img { position: relative; z-index: 1; display: block; height: 100%; width: 100%; opacity: 0; transition: opacity .28s cubic-bezier(.23,1,.32,1); }
 .image-placeholder.is-loaded > img { opacity: 1; }
+.image-placeholder > img.image-placeholder__preview { position: absolute; z-index: 0; inset: -4%; height: 108%; width: 108%; opacity: 0; transform: scale(1.04); filter: blur(18px); transition: opacity .35s cubic-bezier(.23,1,.32,1), filter .55s cubic-bezier(.23,1,.32,1); }
+.image-placeholder.has-preview > img.image-placeholder__preview { opacity: .92; }
+.image-placeholder.is-loaded > img.image-placeholder__preview { opacity: 0; filter: blur(0); }
+.image-placeholder.is-loaded > img:not(.image-placeholder__preview) { opacity: 1; }
 .image-placeholder__surface { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; overflow: hidden; background-color: #e7e3d8; background-image: linear-gradient(rgba(19,34,30,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(19,34,30,.1) 1px, transparent 1px); background-size: 26px 26px; color: rgba(19,34,30,.58); }
+.image-placeholder.has-preview .image-placeholder__surface, .image-placeholder.is-loaded .image-placeholder__surface { opacity: 0; pointer-events: none; }
 .image-placeholder__surface::after { position: absolute; inset: -20%; content: ""; transform: translateX(-75%) rotate(12deg); background: linear-gradient(90deg, transparent, rgba(230,107,91,.26), transparent); }
 .image-placeholder__signal { position: absolute; top: 50%; left: 50%; width: 4.8rem; height: 4.8rem; transform: translate(-50%, -50%) rotate(45deg); border: 1px solid rgba(64,114,246,.35); }
 .image-placeholder__signal::before, .image-placeholder__signal::after { position: absolute; content: ""; background: #e66b5b; }
