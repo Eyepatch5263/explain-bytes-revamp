@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useReadingProgressMap } from "@/hooks/useReadingProgress";
 import { systemDesignDocs } from "@/lib/systemDesignDocs";
+import { ImageWithPlaceholder } from "@/components/ImageWithPlaceholder";
 
 const subjects = [
   { code: "01", title: "System Design", blurb: "Make trade-offs visible before you make them.", icon: Network, color: "blue" },
@@ -100,7 +101,7 @@ export default function Home() {
 
       <main id="top">
         <section className="dark-hero relative isolate overflow-hidden border-b border-[#13221e]/10">
-          <img src="/manus-storage/explainbytes-hero-system-coral_0b3da7d0.png" alt="Abstract connected systems map on drafting paper" className="dark-hero-image absolute inset-0 -z-20 h-full w-full object-cover object-[61%_50%] opacity-95" />
+          <ImageWithPlaceholder src="/manus-storage/explainbytes-hero-system-coral_0b3da7d0.png" alt="Abstract connected systems map on drafting paper" containerClassName="dark-hero-image-shell absolute inset-0 -z-20" className="dark-hero-image object-cover object-[61%_50%] opacity-95" />
           <div className="dark-hero-overlay absolute inset-0 -z-10 bg-gradient-to-r from-[#f3f0e8] via-[#f3f0e8]/90 to-[#f3f0e8]/5" />
           <div className="site-shell relative min-h-[690px] py-7 lg:min-h-[730px] lg:py-9">
             <div className="editorial-rail absolute bottom-0 left-0 top-0 hidden w-12 border-r border-[#13221e]/10 xl:block" aria-hidden="true">
@@ -170,7 +171,7 @@ export default function Home() {
 
             <div className="mt-14 grid gap-6 lg:grid-cols-[1.12fr_0.88fr]">
               <article className="group relative min-h-[480px] overflow-hidden bg-[#d9e2da] p-6 sm:p-9">
-                <img src="/manus-storage/explainbytes-docs-study-coral_ac39ca1b.png" alt="Abstract engineering study diagram" loading="lazy" className="absolute inset-0 h-full w-full object-cover mix-blend-multiply transition-transform duration-700 group-hover:scale-[1.035]" />
+                <ImageWithPlaceholder src="/manus-storage/explainbytes-docs-study-coral_ac39ca1b.png" alt="Abstract engineering study diagram" loading="lazy" containerClassName="dark-study-image-shell absolute inset-0" className="object-cover mix-blend-multiply transition-transform duration-700 group-hover:scale-[1.035]" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#13221e]/76 via-[#13221e]/10 to-transparent" />
                 <div className="relative flex h-full flex-col justify-between text-[#f7f5ef]">
                   <div className="flex items-start justify-between gap-5">
@@ -266,7 +267,7 @@ export default function Home() {
             </div>
             <div className="relative">
               <div className="absolute -right-7 -top-8 h-44 w-44 rounded-full border border-[#13221e]/20" aria-hidden="true" />
-              <img src="/manus-storage/explainbytes-collaboration-notes-coral_6726963d.png" alt="Abstract collaborative engineering manuscript with connected annotation marks" loading="lazy" className="relative z-10 min-h-[370px] w-full object-cover sm:min-h-[450px]" />
+              <ImageWithPlaceholder src="/manus-storage/explainbytes-collaboration-notes-coral_6726963d.png" alt="Abstract collaborative engineering manuscript with connected annotation marks" loading="lazy" containerClassName="dark-collab-image-shell relative z-10 min-h-[370px] w-full sm:min-h-[450px]" className="object-cover" />
               <div className="dark-collab-note relative z-20 -mt-20 ml-auto mr-5 max-w-sm bg-[#f7f5ef] p-5 shadow-[7px_7px_0_#13221e] sm:mr-10 sm:p-6">
                 <div className="flex items-center justify-between border-b border-[#13221e]/15 pb-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#13221e]/58"><span>Shared manuscript</span><span>Live</span></div>
                 <p className="mt-4 font-display text-2xl leading-[0.95] tracking-[-0.04em]">“The cache is not the source of truth.”</p>

@@ -1,0 +1,20 @@
+.image-placeholder { display: block; overflow: hidden; background: #e7e3d8; }
+.image-placeholder:not(.absolute) { position: relative; }
+.image-placeholder > img { position: relative; z-index: 1; display: block; height: 100%; width: 100%; opacity: 0; transition: opacity .28s cubic-bezier(.23,1,.32,1); }
+.image-placeholder.is-loaded > img { opacity: 1; }
+.image-placeholder__surface { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; overflow: hidden; background-color: #e7e3d8; background-image: linear-gradient(rgba(19,34,30,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(19,34,30,.1) 1px, transparent 1px); background-size: 26px 26px; color: rgba(19,34,30,.58); }
+.image-placeholder__surface::after { position: absolute; inset: -20%; content: ""; transform: translateX(-75%) rotate(12deg); background: linear-gradient(90deg, transparent, rgba(230,107,91,.26), transparent); }
+.image-placeholder__signal { position: absolute; top: 50%; left: 50%; width: 4.8rem; height: 4.8rem; transform: translate(-50%, -50%) rotate(45deg); border: 1px solid rgba(64,114,246,.35); }
+.image-placeholder__signal::before, .image-placeholder__signal::after { position: absolute; content: ""; background: #e66b5b; }
+.image-placeholder__signal::before { top: 50%; left: -1.1rem; width: 2.2rem; height: 1px; }
+.image-placeholder__signal::after { top: -1.1rem; left: 50%; width: 1px; height: 2.2rem; }
+.image-placeholder__label { position: absolute; bottom: 1rem; left: 1rem; z-index: 1; font: 500 9px var(--font-mono, ui-monospace, monospace); letter-spacing: .12em; text-transform: uppercase; }
+.image-placeholder.is-failed .image-placeholder__surface { background: #ded9cd; }
+.image-placeholder.is-failed .image-placeholder__signal { border-color: rgba(173,55,48,.4); }
+@media (prefers-reduced-motion: no-preference) { .image-placeholder__surface::after { animation: image-placeholder-shimmer 1.7s cubic-bezier(.23,1,.32,1) infinite; } .image-placeholder__signal { animation: image-placeholder-pulse 1.8s ease-in-out infinite; } }
+@keyframes image-placeholder-shimmer { to { transform: translateX(75%) rotate(12deg); } }
+@keyframes image-placeholder-pulse { 50% { opacity: .48; transform: translate(-50%, -50%) rotate(45deg) scale(1.08); } }
+.dark .image-placeholder { background: #18221f; }
+.dark .image-placeholder__surface { background-color: #18221f; background-image: linear-gradient(rgba(244,239,231,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(244,239,231,.1) 1px, transparent 1px); color: rgba(244,239,231,.62); }
+.dark .image-placeholder__surface::after { background: linear-gradient(90deg, transparent, rgba(230,107,91,.32), transparent); }
+.dark .image-placeholder.is-failed .image-placeholder__surface { background: #202a26; }
