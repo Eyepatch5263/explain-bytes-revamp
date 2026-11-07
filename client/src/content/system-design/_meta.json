@@ -1,8 +1,0 @@
-{
-  "id": "system-design",
-  "title": "System Design",
-  "description": "Learn the fundamentals of designing scalable, reliable, and efficient systems. Covers distributed systems, microservices, and architectural patterns.",
-  "icon": "Server",
-  "color": "oklch(0.6 0.2 280)",
-  "articles": 21
-}

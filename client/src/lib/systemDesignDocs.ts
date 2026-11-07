@@ -1,6 +1,5 @@
 import type { ComponentType } from "react";
 import { systemDesignMdxRaw } from "@/data/systemDesignMdxRaw";
-import systemDesignTopicMeta from "@/content/system-design/_meta.json";
 
 export type SystemDesignDoc = {
   slug: string;
@@ -10,6 +9,16 @@ export type SystemDesignDoc = {
   category: string;
   source: string;
   Component: ComponentType<{ components?: Record<string, ComponentType<any>> }>;
+};
+
+export const systemDesignSourceMeta = {
+  id: "system-design",
+  title: "System Design",
+  description:
+    "Learn the fundamentals of designing scalable, reliable, and efficient systems. Covers distributed systems, microservices, and architectural patterns.",
+  icon: "Server",
+  color: "oklch(0.6 0.2 280)",
+  articles: 21,
 };
 
 const SOURCE_CATEGORY_ORDER: Record<string, number> = {
@@ -26,15 +35,22 @@ const SOURCE_CATEGORY_ORDER: Record<string, number> = {
   Summary: 11,
 };
 
-export const systemDesignSourceMeta = systemDesignTopicMeta;
 
 type MdxModule = {
   default: ComponentType<{ components?: Record<string, ComponentType<any>> }>;
 };
 
-const compiledModules = import.meta.glob("../content/system-design/*.mdx", {
+const compiledModules = import.meta.glob("../content/system-design/**/*.mdx", {
   eager: true,
 }) as Record<string, MdxModule>;
+
+// Build a slug → Component lookup from the nested glob results
+const componentBySlug: Record<string, MdxModule["default"]> = {};
+for (const [filePath, mod] of Object.entries(compiledModules)) {
+  // filePath looks like "../content/system-design/building-blocks/dns.mdx"
+  const slug = filePath.split("/").pop()!.replace(/\.mdx$/, "");
+  componentBySlug[slug] = mod.default;
+}
 
 function getFrontmatter(source: string) {
   const match = source.match(/^---\s*\n([\s\S]*?)\n---\s*\n?/);
@@ -62,7 +78,7 @@ const displayTitle = (slug: string) =>
 export const systemDesignDocs: SystemDesignDoc[] = Object.entries(systemDesignMdxRaw)
   .map(([slug, source]) => {
     const frontmatter = getFrontmatter(source);
-    const Component = compiledModules[`../content/system-design/${slug}.mdx`]?.default;
+    const Component = componentBySlug[slug];
 
     if (!Component) {
       throw new Error(`Unable to compile System Design chapter: ${slug}`);

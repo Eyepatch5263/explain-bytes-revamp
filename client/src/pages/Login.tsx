@@ -59,6 +59,7 @@ export default function Login() {
         <section className="auth-story" aria-labelledby="auth-story-title">
           <p className="auth-eyebrow"><span /> PERSONAL WORKSPACE <b>/</b> {isSignupRoute ? "CREATE ACCOUNT" : "SIGN IN"}</p>
           <h1 id="auth-story-title">Every good idea<br />has <em>a next step.</em></h1>
+
           <p className="auth-story-description">A quiet place to keep your reading, practice, and progress moving with you—one clear concept at a time.</p>
 
           <div className="auth-field-note">
@@ -76,7 +77,6 @@ export default function Login() {
             <div className="auth-field-note-footer"><span>STAY CURIOUS</span><span>01 — 03</span></div>
           </div>
 
-          <div className="auth-story-footer"><span><i /> Reading progress stays with your account.</span><Link href="/terms">Explore terms <ArrowRight size={14} /></Link></div>
         </section>
 
         <section className="auth-access" aria-label={isSignupRoute ? "Create an Explain Bytes account" : "Sign in to Explain Bytes"}>
@@ -87,14 +87,9 @@ export default function Login() {
               initialMode={isSignupRoute ? "signup" : "signin"}
               onSuccess={() => setLocation(getTargetUrl())}
             />
-            <div className="auth-panel-footer">
-              <span>Want to explore first?</span>
-              <Link href="/terms">Browse the terms index <ArrowRight size={13} /></Link>
-            </div>
+
           </div>
-          <Link className="auth-back-link" href="/">
-            <ArrowLeft size={14} /> Back to the field guide
-          </Link>
+
         </section>
       </main>
 

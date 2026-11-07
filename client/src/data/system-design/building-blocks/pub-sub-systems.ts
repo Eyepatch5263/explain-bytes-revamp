@@ -1,0 +1,166 @@
+export const pubSubSystemsRaw = `---
+title: Pub/Sub Systems
+description: Deep dive into Publish-Subscribe messaging systems. Learn how topics, subscriptions, and fan-out work, compare Kafka vs Google Pub/Sub vs SNS, and understand ordering, exactly-once delivery, and backpressure.
+order: 9
+category: Building Blocks
+---
+
+# Publish-Subscribe (Pub/Sub) Systems
+
+The **Publish-Subscribe pattern** is a messaging paradigm where **publishers** (producers) emit events to a named channel called a **topic**, and **subscribers** (consumers) receive those events without the publisher knowing who the subscribers are. This decoupling is what makes pub/sub the backbone of event-driven architectures.
+
+While the Message Queues chapter covers the fundamentals of asynchronous messaging, this chapter goes deeper into pub/sub-specific concerns: fan-out semantics, ordering guarantees, backpressure, and the trade-offs between major pub/sub platforms.
+
+---
+
+## 1. Core Concepts
+
+### Topics, Publishers, and Subscribers
+
+<Mermaid chart='flowchart TD[nl]
+    P1["Publisher A"] -->|Publish| Topic["Topic: order-events"][nl]
+    P2["Publisher B"] -->|Publish| Topic[nl]
+    Topic --> S1["Subscription 1[br](Order Service)"][nl]
+    Topic --> S2["Subscription 2[br](Email Service)"][nl]
+    Topic --> S3["Subscription 3[br](Analytics Service)"]' />
+
+*   **Topic**: A named channel that categorizes events (e.g., \`order-events\`, \`user-signups\`, \`payment-completed\`). Think of it as a radio station broadcasting on a frequency.
+*   **Publisher**: Any service that produces events. Publishers send messages to a topic without knowing who (or how many) subscribers exist.
+*   **Subscription**: A named consumer entity bound to a topic. Each subscription receives its own independent copy of every message. If 3 subscriptions exist on a topic, each message is delivered 3 times (once to each subscription).
+
+### Fan-Out: The Key Differentiator
+
+The critical difference between a **queue** and a **pub/sub topic** is **fan-out**:
+
+| Model | Behavior | Analogy |
+| :--- | :--- | :--- |
+| **Queue** (Point-to-Point) | Each message is consumed by exactly **one** consumer. Once processed, the message is deleted. | A postal mailbox — each letter is read by one recipient. |
+| **Topic** (Pub/Sub) | Each message is delivered to **all** subscribers independently. Each subscriber gets its own copy. | A radio broadcast — every listener hears the same message. |
+
+This means if you publish an \`OrderCreated\` event to a topic, the Inventory Service, Payment Service, and Email Service all receive it independently and process it at their own pace.
+
+---
+
+## 2. Delivery Models
+
+### Push vs. Pull Delivery
+
+| Model | How It Works | Pros | Cons |
+| :--- | :--- | :--- | :--- |
+| **Push** | The broker sends messages to subscribers as soon as they arrive. | Low latency. Subscribers don't need to poll. | If the subscriber is slow, the broker must buffer messages (backpressure problem). |
+| **Pull** | Subscribers poll the broker and fetch messages in batches when ready. | Subscriber controls its own throughput. Natural backpressure handling. | Higher latency. Requires tuning poll intervals. |
+
+*   **Google Cloud Pub/Sub** supports both push (HTTP webhook) and pull delivery.
+*   **Apache Kafka** is exclusively pull-based — consumers fetch messages from partitions at their own offset.
+*   **AWS SNS** is push-based — it pushes messages to HTTP endpoints, SQS queues, or Lambda functions.
+
+### At-Least-Once vs. Exactly-Once
+
+| Guarantee | Behavior | Trade-off |
+| :--- | :--- | :--- |
+| **At-Least-Once** | Messages are guaranteed to be delivered, but may be delivered more than once. | The subscriber must be **idempotent** — processing the same message twice should have no side effects. |
+| **Exactly-Once** | Each message is processed exactly once. | Requires transactional coordination between the broker and the subscriber's database. Significantly more complex and slower. |
+
+> [!IMPORTANT]
+> Most production pub/sub systems default to **at-least-once** delivery. Design your consumers to be idempotent using idempotency keys (see the API Design chapter).
+
+---
+
+## 3. Message Ordering
+
+### Why Ordering Is Hard
+
+In a distributed pub/sub system, messages may be processed by multiple broker nodes in parallel. This means messages published in order \`A → B → C\` might arrive at a subscriber as \`B → A → C\`.
+
+### How Systems Handle Ordering
+
+| System | Ordering Guarantee |
+| :--- | :--- |
+| **Apache Kafka** | Ordered **within a partition**. Messages with the same partition key (e.g., \`user_id\`) are always delivered in order. Messages across different partitions have no ordering guarantee. |
+| **Google Cloud Pub/Sub** | Ordered within an **ordering key** (similar concept to Kafka partition keys). Messages with the same ordering key are delivered in sequence. |
+| **AWS SNS + SQS** | SNS Standard has no ordering. **SNS FIFO + SQS FIFO** provide ordering within a message group ID. |
+| **RabbitMQ** | Ordered within a single queue when consumed by a single consumer. No global ordering across multiple queues. |
+
+### Partition Key Strategy
+
+To maintain order for related events, use a consistent **partition key**:
+
+\`\`\`
+Event: UserUpdated  → Partition key: user_id = "u123"
+Event: UserDeleted  → Partition key: user_id = "u123"
+
+Both events go to the same partition → Delivered in order.
+\`\`\`
+
+If two events use different partition keys, they may land on different partitions and arrive out of order — but that's fine because they are about different entities.
+
+---
+
+## 4. Backpressure and Dead Letter Topics
+
+### Backpressure
+
+When a subscriber processes messages slower than the publisher produces them, a backlog of unprocessed messages accumulates. This is called **backpressure**.
+
+\`\`\`
+Publisher rate:   10,000 messages/sec
+Subscriber rate:   2,000 messages/sec
+
+Backlog growth:    8,000 messages/sec accumulating in the broker
+\`\`\`
+
+**Mitigation Strategies:**
+1.  **Scale consumers horizontally**: Add more subscriber instances. In Kafka, add more consumers to the consumer group (up to the number of partitions).
+2.  **Increase batch size**: Pull-based consumers can fetch larger batches to amortize overhead.
+3.  **Apply flow control**: Some brokers (Google Pub/Sub) allow subscribers to configure a maximum number of outstanding (unacknowledged) messages.
+4.  **Set retention limits**: Configure the broker to drop messages older than a threshold (e.g., 7 days) to prevent unbounded disk growth.
+
+### Dead Letter Topics (DLT)
+
+When a message repeatedly fails processing (e.g., malformed data), it should be moved to a **Dead Letter Topic** after a configured number of retries.
+
+<Mermaid chart='flowchart LR[nl]
+    Topic["Main Topic"] --> Sub["Subscriber"][nl]
+    Sub -->|"Processing fails (5 retries)"| DLT["Dead Letter Topic"][nl]
+    DLT --> Dashboard["Ops Dashboard / Alerting"]' />
+
+This prevents a single bad message from blocking the entire subscription.
+
+---
+
+## 5. Pub/Sub Platform Comparison
+
+| Feature | Apache Kafka | Google Cloud Pub/Sub | AWS SNS + SQS | RabbitMQ |
+| :--- | :--- | :--- | :--- | :--- |
+| **Model** | Log-based streaming | Managed pub/sub | Push notification + queue | Traditional message broker |
+| **Delivery** | Pull | Push or Pull | Push (SNS) + Pull (SQS) | Push |
+| **Ordering** | Per partition | Per ordering key | FIFO mode only | Per queue |
+| **Retention** | Configurable (days/weeks) | 31 days max | 14 days (SQS) | Until consumed |
+| **Replay** | Yes (reset offset) | Yes (seek to timestamp) | No (once consumed, deleted) | No |
+| **Throughput** | Millions msg/sec | Millions msg/sec | Hundreds of thousands | Tens of thousands |
+| **Best For** | Event streaming, data pipelines | Cloud-native event-driven apps | AWS-native pub/sub | Complex routing, low latency |
+
+> [!TIP]
+> In a system design interview, use **Kafka** when you need event replay, high throughput, or stream processing. Use **managed pub/sub** (Google Pub/Sub or SNS+SQS) when you want serverless simplicity without managing broker infrastructure.
+
+---
+
+## 6. Common Pub/Sub Patterns
+
+### Event Notification
+The publisher emits a lightweight event (e.g., \`{ "event": "OrderCreated", "orderId": "123" }\`). Subscribers receive the notification and fetch full details from the source service via API if needed.
+
+*   **Pros**: Small message payloads. Publisher doesn't need to include all data.
+*   **Cons**: Subscribers make additional network calls to fetch details.
+
+### Event-Carried State Transfer
+The publisher includes the **full state** of the entity in the event (e.g., the complete order object with items, prices, shipping address). Subscribers don't need to call back to the source.
+
+*   **Pros**: Subscribers are fully self-contained. No additional API calls.
+*   **Cons**: Larger messages. Risk of data staleness if the entity changes between publish and consume.
+
+### Event Sourcing with Pub/Sub
+Combine event sourcing (storing every state change as an event) with pub/sub to broadcast domain events to other services. The event store becomes the source of truth, and pub/sub distributes events to projections, read models, and downstream services.
+`;
+
+export default pubSubSystemsRaw;

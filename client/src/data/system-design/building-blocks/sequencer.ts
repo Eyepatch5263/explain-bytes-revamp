@@ -1,0 +1,252 @@
+export const sequencerRaw = `---
+title: Sequencer
+description: Design a distributed sequencer for generating monotonically increasing sequence numbers. Learn database sequences, ZooKeeper coordination, Kafka offsets, and epoch-based ordering for distributed consensus.
+order: 6
+category: Building Blocks
+---
+
+# Sequencer
+
+A **sequencer** generates **monotonically increasing numbers** — each new number is guaranteed to be greater than the previous one. Unlike Unique ID Generators (which focus on global uniqueness and may have gaps), a sequencer focuses on **strict ordering** with no gaps: 1, 2, 3, 4, 5...
+
+Sequencers are essential when you need a **total order** of events — knowing not just that event A and event B happened, but that A happened *before* B.
+
+---
+
+## 1. Where Sequencers Are Needed
+
+| Use Case | Why Ordering Matters |
+| :--- | :--- |
+| **Database replication** | Replicas must apply writes in the exact same order to maintain consistency. |
+| **Event log / WAL** | Write-Ahead Logs assign sequence numbers to every transaction so recovery can replay them in order. |
+| **Message ordering** | Kafka assigns an incrementing **offset** to each message in a partition to guarantee consumer ordering. |
+| **Distributed consensus** | Protocols like Paxos and Raft assign sequence numbers (ballot numbers, log indices) to proposals to determine precedence. |
+| **Version control** | Each edit to a collaborative document needs a version number to detect and resolve conflicts. |
+| **Ticket systems** | Issue trackers (Jira, GitHub Issues) assign sequential issue numbers: #1, #2, #3... |
+
+---
+
+## 2. Sequencer vs. Unique ID Generator
+
+These two concepts are closely related but solve different problems:
+
+| Feature | Sequencer | Unique ID Generator (Snowflake/UUID) |
+| :--- | :--- | :--- |
+| **Goal** | Strict total ordering (1, 2, 3, 4...) | Global uniqueness |
+| **Gaps** | No gaps allowed | Gaps are acceptable |
+| **Monotonic** | Yes (always increasing) | Roughly time-ordered (Snowflake), or random (UUID v4) |
+| **Coordination** | Requires a central authority or consensus | Can be fully decentralized |
+| **Throughput** | Limited by coordination overhead | Very high (millions/sec) |
+| **Example** | Kafka partition offset, PostgreSQL \`SERIAL\` | Twitter Snowflake ID, UUID v7 |
+
+The fundamental trade-off: **strict ordering requires coordination**, which limits throughput. Unique IDs sacrifice strict ordering to achieve higher throughput without coordination.
+
+---
+
+## 3. Single-Node Sequencers
+
+### Database Auto-Increment
+
+The simplest sequencer is a database \`SERIAL\` or \`AUTO_INCREMENT\` column:
+
+\`\`\`sql
+CREATE TABLE events (
+    sequence_number BIGSERIAL PRIMARY KEY,  -- PostgreSQL
+    event_data JSONB
+);
+
+INSERT INTO events (event_data) VALUES ('{"type": "order_created"}');
+-- sequence_number = 1
+
+INSERT INTO events (event_data) VALUES ('{"type": "payment_received"}');
+-- sequence_number = 2
+\`\`\`
+
+The database guarantees that each \`INSERT\` gets the next sequential number, with no gaps under normal operation (gaps can appear if transactions are rolled back).
+
+**Pros:** Simple, reliable, transactional.
+**Cons:** Single point of failure. Throughput is limited by a single database's write capacity (~10,000-50,000 inserts/sec).
+
+### In-Memory Atomic Counter
+
+For higher throughput within a single process:
+
+\`\`\`typescript
+import { Worker, isMainThread, parentPort } from 'worker_threads';
+import { Atomics, SharedArrayBuffer } from 'buffer';
+
+// Shared atomic counter accessible by all threads
+const buffer = new SharedArrayBuffer(8);
+const counter = new BigInt64Array(buffer);
+
+function nextSequence(): bigint {
+    return Atomics.add(counter, 0, 1n) + 1n;
+}
+\`\`\`
+
+**Pros:** Extremely fast (millions/sec).
+**Cons:** Volatile — the counter resets on process restart. Only works within a single machine.
+
+---
+
+## 4. Distributed Sequencers
+
+When you need sequential numbers across multiple machines, coordination is required.
+
+### Approach 1: Centralized Sequence Service
+
+A dedicated microservice that hands out sequence numbers. All other services call this service to get the next number.
+
+<Mermaid chart='flowchart LR[nl]
+    Service1["Service A"] -->|"Get next sequence"| SeqService["Sequence Service[br](Single Leader)"][nl]
+    Service2["Service B"] -->|"Get next sequence"| SeqService[nl]
+    Service3["Service C"] -->|"Get next sequence"| SeqService[nl]
+    SeqService --> DB[("Durable Store")]' />
+
+**Implementation:** The sequence service maintains an atomic counter backed by a durable store (Redis, PostgreSQL). Each call increments and returns the next value.
+
+\`\`\`typescript
+// Sequence service endpoint
+async function getNextSequence(sequenceName: string): Promise<number> {
+    // Redis INCR is atomic and returns the new value
+    return await redis.incr(\`sequence:\${sequenceName}\`);
+}
+\`\`\`
+
+**Pros:** Simple, strongly consistent, gap-free.
+**Cons:** Single point of failure (mitigated with leader election). Network latency on every sequence request. Throughput limited by the single leader (~100,000/sec with Redis).
+
+### Approach 2: Block Allocation (Range-Based)
+
+To reduce network calls, the sequence service allocates **blocks** (ranges) of sequence numbers to each client. The client uses numbers from its local block without contacting the server until the block is exhausted.
+
+\`\`\`
+Sequence Service hands out blocks of 1000:
+
+Service A requests a block → Gets range [1, 1000]
+Service B requests a block → Gets range [1001, 2000]
+Service C requests a block → Gets range [2001, 3000]
+
+Service A uses: 1, 2, 3, ..., 1000 (locally, no network call)
+Service A exhausts its block → Requests new block [3001, 4000]
+\`\`\`
+
+<Mermaid chart='flowchart LR[nl]
+    SeqServer["Sequence Server"] -->|"Allocate [1-1000]"| A["Service A[br](Local counter: 1...1000)"][nl]
+    SeqServer -->|"Allocate [1001-2000]"| B["Service B[br](Local counter: 1001...2000)"][nl]
+    SeqServer -->|"Allocate [2001-3000]"| C["Service C[br](Local counter: 2001...3000)"]' />
+
+**Pros:**
+*   High throughput — most sequence numbers are generated locally without a network call.
+*   The central server is only contacted once per block (e.g., every 1000 sequences).
+
+**Cons:**
+*   **Gaps**: If Service A crashes after using only 500 of its 1000-number block, numbers 501-1000 are permanently lost (gap in the sequence).
+*   **Out-of-order across services**: Service A might use number 5 (from its [1-1000] block) while Service B simultaneously uses number 1500 (from its [1001-2000] block). The global order is not strictly sequential across services.
+
+> [!IMPORTANT]
+> Block allocation is the approach used by **Google's Chubby** and **Apache ZooKeeper** for generating monotonic sequence numbers at scale. It is the standard production approach when gaps are acceptable.
+
+### Approach 3: ZooKeeper Sequential Nodes
+
+Apache ZooKeeper provides built-in support for sequential numbering via **sequential znodes**:
+
+\`\`\`
+// Create a sequential znode
+create -s /tasks/task_      →  /tasks/task_0000000001
+create -s /tasks/task_      →  /tasks/task_0000000002
+create -s /tasks/task_      →  /tasks/task_0000000003
+\`\`\`
+
+ZooKeeper guarantees that each sequential znode gets a strictly increasing number, and this is consistent across all clients.
+
+**Used by:** Apache Kafka (for partition leadership), HBase (for region server coordination), and many distributed systems for leader election and distributed locking.
+
+---
+
+## 5. Logical Clocks: Ordering Without a Central Sequencer
+
+In some systems, you don't need a global sequence number — you just need to know the **causal order** of events (did A happen before B?). Logical clocks provide this without a central coordinator.
+
+### Lamport Timestamps
+
+Each process maintains a local counter. On every event:
+1.  Increment the local counter.
+2.  When sending a message, attach the counter value.
+3.  When receiving a message, set the local counter to \`max(local, received) + 1\`.
+
+\`\`\`
+Process A:          Process B:
+  Event 1 (t=1)
+  Send msg (t=1) ──────► Receive msg
+                          Set t = max(0, 1) + 1 = 2
+                          Event 2 (t=2)
+  Event 3 (t=2)
+                          Send msg (t=2) ──────► Receive msg
+  Set t = max(2, 2) + 1 = 3                      Set t = max(t, 2) + 1
+  Event 4 (t=3)
+\`\`\`
+
+**Lamport's rule:** If $t(A) < t(B)$, then either A happened before B, or they are concurrent. Lamport timestamps establish a **partial order**.
+
+### Vector Clocks
+
+Vector clocks extend Lamport timestamps to detect **concurrent** events (events that are neither before nor after each other).
+
+Each process maintains a vector of counters — one per process:
+
+\`\`\`
+Process A:  [A:1, B:0]   →  Event: A increments its own counter
+Process B:  [A:0, B:1]   →  Event: B increments its own counter
+
+Process A sends message to B:
+  Message carries: [A:1, B:0]
+  B receives and merges: [max(A:1, A:0), max(B:0, B:1)] = [A:1, B:1]
+  B increments own: [A:1, B:2]
+\`\`\`
+
+If neither vector dominates the other (some elements are greater, some are smaller), the events are **concurrent**.
+
+**Used by:** Amazon DynamoDB (for conflict detection), Riak (for sibling resolution), and distributed version control systems.
+
+---
+
+## 6. Kafka Partition Offsets: A Real-World Sequencer
+
+Apache Kafka's partition offset is one of the most successful real-world sequencer implementations:
+
+\`\`\`
+Kafka Partition 0:
+┌──────┬──────┬──────┬──────┬──────┬──────┐
+│ Offset│  0   │  1   │  2   │  3   │  4   │
+│ Data  │ msg_a│ msg_b│ msg_c│ msg_d│ msg_e│
+└──────┴──────┴──────┴──────┴──────┴──────┘
+
+Properties:
+- Offsets are gap-free: 0, 1, 2, 3, 4, ...
+- Offsets are monotonically increasing within a partition.
+- Each partition is a single-leader sequencer (the partition leader assigns offsets).
+- Consumers track their position using the offset.
+\`\`\`
+
+Kafka achieves high throughput by **partitioning** — each partition has its own independent sequencer (the partition leader). There is no global ordering across partitions, only within each partition.
+
+This is a practical application of the **trade-off**: strict global ordering limits throughput to a single leader, but per-partition ordering with $P$ partitions gives $P \\times$ the throughput while maintaining order for related events (using partition keys).
+
+---
+
+## 7. Choosing the Right Approach
+
+| Requirement | Approach | Throughput |
+| :--- | :--- | :--- |
+| Strict sequential, no gaps, single DB | Database \`SERIAL\` | ~50K/sec |
+| Strict sequential, no gaps, distributed | Centralized service (Redis \`INCR\`) | ~100K/sec |
+| Sequential with acceptable gaps | Block allocation (ZooKeeper) | Millions/sec |
+| Causal ordering, no central coordinator | Lamport / Vector clocks | Unlimited (local) |
+| Per-partition ordering, high throughput | Kafka offsets | Millions/sec (partitioned) |
+
+> [!TIP]
+> In system design interviews, the key insight is: **strict global ordering = centralized bottleneck**. The way to scale is to relax the requirement — either accept gaps (block allocation), or scope ordering to partitions (Kafka), or use logical clocks for causal ordering only.
+`;
+
+export default sequencerRaw;

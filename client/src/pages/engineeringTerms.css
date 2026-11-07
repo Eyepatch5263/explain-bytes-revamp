@@ -332,7 +332,7 @@
 .terms-search-hint {
   margin: .8rem 0 0;
   color: var(--terms-faint);
-  font: 10px/1.5 var(--font-mono);
+  font: 12px var(--font-mono);
 }
 
 .terms-search-hint button {

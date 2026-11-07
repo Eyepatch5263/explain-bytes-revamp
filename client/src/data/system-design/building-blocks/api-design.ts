@@ -1,0 +1,347 @@
+export const apiDesignRaw = `---
+title: API Design
+description: Master API design paradigms for system design. Learn REST, GraphQL, and gRPC in depth — when to use each, their trade-offs, versioning strategies, pagination, and idempotency.
+order: 16
+category: Building Blocks
+---
+
+# API Design
+
+An **Application Programming Interface (API)** is a contract between two pieces of software. It defines how a client (e.g., a mobile app or another microservice) can request data or perform actions on a server. In system design, the API is the single most important interface you design — every user interaction, every service-to-service call, flows through an API.
+
+Think of an API like a restaurant menu. The menu (API) tells you what dishes (operations) are available, what ingredients you need to provide (request parameters), and what you'll get back (response format). The kitchen (server) handles the complexity internally.
+
+---
+
+## 1. The Three Major API Paradigms
+
+There are three dominant paradigms for building APIs. Each was designed for a different set of problems.
+
+### 1. REST (Representational State Transfer)
+
+REST is the most widely adopted API style on the web. It models everything as a **Resource** — a noun you can perform actions on using standard HTTP methods.
+
+**Core Principles:**
+*   **Resources are identified by URLs**: Each entity (user, order, product) has a unique URL endpoint.
+*   **Standard HTTP methods map to CRUD operations**:
+
+| HTTP Method | Operation | Example | Description |
+| :--- | :--- | :--- | :--- |
+| \`GET\` | Read | \`GET /api/users/123\` | Fetch user 123 |
+| \`POST\` | Create | \`POST /api/users\` | Create a new user |
+| \`PUT\` | Replace | \`PUT /api/users/123\` | Replace the entire user 123 resource |
+| \`PATCH\` | Partial Update | \`PATCH /api/users/123\` | Update only specific fields of user 123 |
+| \`DELETE\` | Delete | \`DELETE /api/users/123\` | Delete user 123 |
+
+*   **Stateless**: Each request from the client must contain all the information the server needs. The server does not store client session state between requests.
+
+**Example: A REST API for a Blog**
+
+\`\`\`graphql
+# Get all posts (with pagination)
+GET /api/v1/posts?page=1&limit=20
+Response: { "data": [...], "nextPage": 2, "totalCount": 150 }
+
+# Get a single post
+GET /api/v1/posts/42
+Response: { "id": 42, "title": "Hello", "author": { ... }, "comments": [...] }
+
+# Create a post
+POST /api/v1/posts
+Body: { "title": "New Post", "content": "..." }
+Response: 201 Created { "id": 43, ... }
+
+# Update a post
+PATCH /api/v1/posts/42
+Body: { "title": "Updated Title" }
+Response: 200 OK { "id": 42, "title": "Updated Title", ... }
+
+# Delete a post
+DELETE /api/v1/posts/42
+Response: 204 No Content
+\`\`\`
+
+**When to Use REST:**
+*   Public-facing APIs consumed by third-party developers (GitHub, Stripe, Twitter all use REST).
+*   Standard CRUD applications (e-commerce, content management).
+*   When HTTP caching is important (GET responses can be cached by browsers, CDNs, and proxies automatically).
+
+**Trade-offs:**
+*   **Over-fetching**: \`GET /api/users/123\` might return 50 fields when the client only needs \`name\` and \`avatar\`.
+*   **Under-fetching**: To display a user's profile page, the client may need to make 3 separate requests: \`GET /users/123\`, \`GET /users/123/posts\`, \`GET /users/123/followers\`.
+
+---
+
+### 2. GraphQL
+
+GraphQL, developed by Facebook in 2012, solves the over-fetching and under-fetching problems of REST. Instead of the server deciding what data to return, **the client specifies exactly what it needs** in a single request.
+
+**Core Principles:**
+*   **Single endpoint**: All requests go to \`POST /graphql\`.
+*   **Client-defined queries**: The client sends a query describing the exact shape of the data it needs.
+*   **Strongly typed schema**: The server publishes a schema that describes all available data types and operations.
+
+**Example: Fetching a User Profile in GraphQL**
+
+\`\`\`graphql
+# Client sends this query:
+query {
+  user(id: "123") {
+    name
+    avatar
+    posts(limit: 5) {
+      title
+      createdAt
+    }
+    followersCount
+  }
+}
+\`\`\`
+
+\`\`\`json
+// Server responds with EXACTLY the requested shape:
+{
+  "data": {
+    "user": {
+      "name": "Alice",
+      "avatar": "https://cdn.example.com/alice.jpg",
+      "posts": [
+        { "title": "Hello World", "createdAt": "2024-01-15" },
+        { "title": "GraphQL is great", "createdAt": "2024-02-01" }
+      ],
+      "followersCount": 1024
+    }
+  }
+}
+\`\`\`
+
+Notice how a single request returned data that would have required 3 separate REST calls. The response contains no extra fields — only what was requested.
+
+**When to Use GraphQL:**
+*   Complex frontend applications with diverse data requirements (e.g., Facebook, Shopify).
+*   When multiple client types (mobile app, web, smartwatch) need different data shapes from the same backend.
+*   As a **Backend-for-Frontend (BFF)** aggregation layer sitting in front of REST microservices.
+
+**Trade-offs:**
+*   **No native HTTP caching**: Since all queries go to \`POST /graphql\`, CDNs and browsers cannot cache responses using standard HTTP caching headers.
+*   **Security complexity**: Malicious clients can craft deeply nested queries (e.g., \`user.posts.comments.author.posts.comments...\`) that exhaust server resources. You must implement **query depth limiting** and **query cost analysis**.
+*   **Backend complexity**: Resolvers (the functions that fetch data for each field) can lead to the **N+1 query problem** if not carefully optimized with tools like DataLoader.
+
+---
+
+### 3. gRPC (Google Remote Procedure Call)
+
+gRPC is a high-performance, binary protocol designed for **internal service-to-service communication** in microservice architectures. Instead of resources and queries, gRPC models APIs as **remote function calls**.
+
+**Core Principles:**
+*   **Protocol Buffers (Protobuf)**: Data is serialized in a compact binary format, not JSON. This is significantly smaller and faster to parse.
+*   **HTTP/2**: gRPC runs on HTTP/2, enabling multiplexing (multiple requests over a single TCP connection), header compression, and bi-directional streaming.
+*   **Contract-first development**: You define your API in a \`.proto\` file, and the gRPC toolchain generates type-safe client and server code in any language.
+
+**Example: Defining a gRPC Service**
+
+\`\`\`protobuf
+// user_service.proto
+
+syntax = "proto3";
+
+service UserService {
+  // Unary RPC: Simple request-response
+  rpc GetUser (GetUserRequest) returns (UserResponse);
+
+  // Server Streaming: Server sends a stream of responses
+  rpc ListUsers (ListUsersRequest) returns (stream UserResponse);
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message UserResponse {
+  string user_id = 1;
+  string name = 2;
+  string email = 3;
+}
+\`\`\`
+
+From this \`.proto\` file, gRPC auto-generates client and server stubs in Python, Go, Java, TypeScript, etc. The developer simply implements the \`GetUser\` function on the server and calls \`client.GetUser(request)\` on the client.
+
+**gRPC Streaming Modes:**
+
+| Mode | Description | Use Case |
+| :--- | :--- | :--- |
+| **Unary** | Client sends one request, server sends one response. | Standard request-response (like REST). |
+| **Server Streaming** | Client sends one request, server sends a stream of responses. | Real-time stock prices, live logs. |
+| **Client Streaming** | Client sends a stream of requests, server sends one response. | Uploading a large file in chunks. |
+| **Bi-directional Streaming** | Both client and server send streams simultaneously. | Real-time chat, multiplayer games. |
+
+**When to Use gRPC:**
+*   Internal microservice-to-microservice calls where latency is critical (payment service to fraud detection service).
+*   Systems requiring real-time bi-directional streaming (live dashboards, IoT telemetry).
+*   Polyglot environments where services are written in different languages (Go, Java, Python) and need auto-generated, type-safe clients.
+
+**Trade-offs:**
+*   **Not browser-friendly**: Browsers cannot natively make gRPC calls. You need a proxy layer (like Envoy with gRPC-Web) to translate.
+*   **Not human-readable**: Binary Protobuf payloads cannot be inspected with \`curl\` or browser developer tools.
+
+---
+
+## 2. Choosing the Right Paradigm
+
+<Mermaid chart='flowchart TD[nl]
+    Start["What kind of API do you need?"] -->|"Public, external-facing"| REST["Use REST"][nl]
+    Start -->|"Complex frontend with varied data needs"| GraphQL["Use GraphQL"][nl]
+    Start -->|"Internal microservice-to-microservice"| gRPC["Use gRPC"][nl]
+    REST --> Cache["Leverage HTTP caching"][nl]
+    GraphQL --> BFF["Use as BFF aggregation layer"][nl]
+    gRPC --> Stream["Leverage HTTP/2 streaming"]' />
+
+| Criteria | REST | GraphQL | gRPC |
+| :--- | :--- | :--- | :--- |
+| **Data Format** | JSON (text) | JSON (text) | Protobuf (binary) |
+| **Transport** | HTTP/1.1 or HTTP/2 | HTTP (POST) | HTTP/2 |
+| **Caching** | Native (HTTP headers) | Complex (no native) | No native |
+| **Best For** | Public APIs, CRUD | Flexible frontends | Fast microservices |
+| **Streaming** | No (needs WebSockets) | Subscriptions | Native (4 modes) |
+| **Code Generation** | Optional (OpenAPI) | Optional | Required (Protobuf) |
+
+> [!IMPORTANT]
+> In a system design interview, the "correct" answer is almost never "always use X." Demonstrate that you can match the right tool to the right problem. A common production pattern is: **gRPC** between internal services, a **GraphQL BFF** to aggregate data for frontends, and a **REST** API for public third-party integrations.
+
+---
+
+## 3. API Versioning Strategies
+
+APIs evolve over time. You must support old clients while introducing new features. Breaking an existing client's integration is one of the most costly mistakes in software engineering.
+
+### Strategy 1: URL Path Versioning
+\`\`\`
+GET /api/v1/users/123   →  Returns { name, email }
+GET /api/v2/users/123   →  Returns { name, email, avatar, bio }
+\`\`\`
+*   **Pros**: Simple, explicit, easy to route and cache.
+*   **Cons**: The URL changes, which can break bookmarks and requires client-side code updates.
+*   **Used by**: GitHub, Stripe, Twitter.
+
+### Strategy 2: Header Versioning
+\`\`\`
+GET /api/users/123
+Header: Accept: application/vnd.myapi.v2+json
+\`\`\`
+*   **Pros**: Clean URLs. The API version is a metadata concern, not a resource identity concern.
+*   **Cons**: Harder to test (can't just paste a URL in a browser). Caching proxies need to be configured to vary by header.
+
+### Strategy 3: Query Parameter Versioning
+\`\`\`
+GET /api/users/123?version=2
+\`\`\`
+*   **Pros**: Easy to add to existing requests.
+*   **Cons**: Can pollute URLs and make caching more complex.
+
+> [!TIP]
+> **URL Path Versioning** (\`/v1/\`, \`/v2/\`) is the industry default. It is the simplest to implement, test, and document. Start with this unless you have a strong reason not to.
+
+---
+
+## 4. Pagination Patterns
+
+Any API endpoint that returns a list of items **must** implement pagination. Without it, a query that returns 10 million rows will exhaust server memory and crash the client.
+
+### 1. Offset-Based Pagination
+\`\`\`
+GET /api/posts?page=3&limit=20
+\`\`\`
+The server skips \`(page - 1) * limit\` rows and returns the next \`limit\` rows.
+
+*   **Pros**: Simple to implement. Allows random access to any page.
+*   **Cons**: **Performance degrades on large datasets**. \`OFFSET 1000000\` in SQL forces the database to scan and discard 1 million rows before returning results. Also, if a new item is inserted while the user is paginating, items can shift and be duplicated or skipped.
+
+### 2. Cursor-Based Pagination (Recommended)
+\`\`\`
+GET /api/posts?cursor=eyJpZCI6IDQyfQ==&limit=20
+\`\`\`
+The \`cursor\` is an opaque, encoded pointer (usually the last item's ID or timestamp) to the position in the dataset. The server queries items *after* the cursor.
+
+\`\`\`sql
+-- Instead of OFFSET (slow):
+SELECT * FROM posts ORDER BY id LIMIT 20 OFFSET 1000000;
+
+-- Use a cursor (fast):
+SELECT * FROM posts WHERE id > 42 ORDER BY id LIMIT 20;
+\`\`\`
+
+*   **Pros**: Consistent performance regardless of dataset size ($O(\\log N)$ with an index). No duplicated or skipped items during concurrent inserts.
+*   **Cons**: Cannot jump to an arbitrary page (no "Go to page 50" feature).
+*   **Used by**: Twitter, Facebook, Slack, Stripe.
+
+---
+
+## 5. Idempotency in API Design
+
+**Idempotency** means that making the same request multiple times produces the same result as making it once. This is critical in distributed systems where network failures can cause retries.
+
+| HTTP Method | Idempotent? | Explanation |
+| :--- | :--- | :--- |
+| \`GET\` | Yes | Reading data multiple times doesn't change it. |
+| \`PUT\` | Yes | Replacing a resource with the same data is the same every time. |
+| \`DELETE\` | Yes | Deleting a resource that's already deleted returns the same result. |
+| \`POST\` | **No** | Creating a new resource twice creates two resources. |
+| \`PATCH\` | **It depends** | \`SET balance = 100\` is idempotent. \`INCREMENT balance BY 10\` is not. |
+
+### Making Non-Idempotent Operations Safe
+
+For critical \`POST\` operations (like charging a credit card), use an **Idempotency Key**:
+
+\`\`\`typescript
+// Client sends a unique key with the request:
+POST /api/payments
+Headers: { "Idempotency-Key": "a1b2c3d4-uuid" }
+Body: { "amount": 50.00, "currency": "USD" }
+
+// Server logic:
+async function processPayment(req: Request) {
+    const key = req.headers["Idempotency-Key"];
+
+    // 1. Check if this key was already processed
+    const existing = await redis.get(\`idempotency:\${key}\`);
+    if (existing) {
+        return JSON.parse(existing); // Return the cached response
+    }
+
+    // 2. Process the payment (only happens once)
+    const result = await chargeCard(req.body);
+
+    // 3. Cache the response for future retries
+    await redis.setex(\`idempotency:\${key}\`, 86400, JSON.stringify(result));
+
+    return result;
+}
+\`\`\`
+
+If the client's network drops after sending the payment request, it can safely retry with the same Idempotency Key. The server recognizes the duplicate and returns the original response without charging the card again.
+
+---
+
+## 6. HTTP Status Codes: Speaking the Language
+
+A well-designed API communicates intent clearly through HTTP status codes:
+
+| Code | Meaning | When to Use |
+| :--- | :--- | :--- |
+| \`200 OK\` | Success | Successful GET, PUT, PATCH, DELETE. |
+| \`201 Created\` | Resource created | Successful POST that creates a new resource. |
+| \`204 No Content\` | Success, no body | Successful DELETE. |
+| \`400 Bad Request\` | Client error | Invalid request body, missing required fields. |
+| \`401 Unauthorized\` | Not authenticated | No valid authentication token provided. |
+| \`403 Forbidden\` | Not authorized | Authenticated but lacks permission for this action. |
+| \`404 Not Found\` | Resource doesn't exist | The requested URL or resource ID is invalid. |
+| \`409 Conflict\` | State conflict | Trying to create a resource that already exists. |
+| \`429 Too Many Requests\` | Rate limited | Client has exceeded the allowed request rate. |
+| \`500 Internal Server Error\` | Server failure | Unhandled exception on the server. |
+| \`503 Service Unavailable\` | Temporarily down | Server is overloaded or undergoing maintenance. |
+
+> [!TIP]
+> A common anti-pattern is returning \`200 OK\` with an error message in the body (e.g., \`{ "status": "error", "message": "User not found" }\`). This breaks standard HTTP tooling. Use the correct status code (\`404\`) and include details in the body.
+`;
+
+export default apiDesignRaw;

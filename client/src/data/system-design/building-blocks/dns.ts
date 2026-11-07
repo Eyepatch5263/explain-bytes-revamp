@@ -1,0 +1,184 @@
+export const dnsRaw = `---
+title: DNS (Domain Name System)
+description: The internet's address book. Deep dive into hierarchical resolution, Anycast routing, caching tiers, security (DNSSEC, DoH/DoT), and load balancing.
+order: 1
+category: Building Blocks
+---
+
+# Domain Name System (DNS)
+> Do watch the [DNS Simulation](/docs/system-design/dns/simulation/) after reading this section for an intuitive understanding.
+
+DNS is the phonebook of the internet. It translates human-readable domain names (like \`www.example.com\`) into IP addresses (like \`93.184.216.34\`) that computers use to route packets across the globe. Without DNS, we would have to memorize 32-bit IPv4 addresses or 128-bit IPv6 hex strings for every website we visit.
+
+---
+
+## 1. The Hierarchical DNS Architecture
+
+DNS is not a single database; it is a globally distributed, hierarchical database. This structure prevents single points of failure and allows delegation of authority.
+
+<Mermaid chart='flowchart TD[nl]
+    Root[". (Root Server)"] --> TLD[".com / .org / .net (TLD Server)"][nl]
+    TLD --> Auth["example.com (Authoritative Server)"][nl]
+    Auth --> Sub["api.example.com (Subdomain / Record)"]' />
+
+### The Key Actors in DNS Resolution
+
+1.  **DNS Resolver (Recursive Resolver)**: Typically operated by your ISP, Google (\`8.8.8.8\`), or Cloudflare (\`1.1.1.1\`). It acts as a middleman, fetching the IP address on behalf of the client by querying the hierarchical servers.
+2.  **Root Name Server**: The first stop in the hierarchy. It doesn't know the IP of the domain, but it knows where to find the **TLD (Top-Level Domain)** server for extensions like \`.com\`, \`.org\`, or \`.io\`. There are 13 logical root servers globally (named \`a.root-servers.net\` to \`m.root-servers.net\`), distributed across hundreds of physical locations using Anycast routing.
+3.  **TLD Name Server**: Handles top-level domains. For example, a request for \`example.com\` queries the \`.com\` TLD server, which returns the address of the domain's **Authoritative** name server.
+4.  **Authoritative Name Server**: The final source of truth. It contains the actual DNS records mapping the domain name to the server's IP address.
+
+---
+
+## 2. Step-by-Step DNS Resolution Flow
+
+When you type \`https://example.com\` into your browser, a multi-step resolution process begins:
+
+<Mermaid chart="sequenceDiagram[nl]
+    autonumber[nl]
+    actor Client as User Browser[nl]
+    participant Rec as Recursive Resolver[nl]
+    participant Root as Root Server (.)[nl]
+    participant TLD as TLD Server (.com)[nl]
+    participant Auth as Authoritative Server (NS)[nl]
+[nl]
+    Client->>Rec: Resolve example.com[nl]
+    Note over Rec: Check Local Cache[nl]
+    Rec->>Root: Where is example.com?[nl]
+    Root-->>Rec: Refer to .com TLD Server[nl]
+    Rec->>TLD: Where is example.com?[nl]
+    TLD-->>Rec: Refer to ns1.example.com (Authoritative)[nl]
+    Rec->>Auth: Give me IP of example.com[nl]
+    Auth-->>Rec: A Record: 93.184.216.34 (TTL: 3600s)[nl]
+    Rec-->>Client: 93.184.216.34" />
+
+1.  **Local Checks**: The browser first checks its internal cache, followed by the Operating System's local cache (e.g., \`/etc/hosts\`).
+2.  **Resolver Query**: If not found locally, the OS queries the configured **Recursive Resolver**.
+3.  **Root Query**: The Resolver queries the **Root Server**. The Root Server redirects the Resolver to the \`.com\` TLD server.
+4.  **TLD Query**: The Resolver queries the \`.com\` TLD server. The TLD server redirects the Resolver to the **Authoritative Server** (\`ns1.example.com\`).
+5.  **Authoritative Query**: The Resolver queries the Authoritative Server, which returns the IP address (\`93.184.216.34\`) and a Time-To-Live (TTL).
+6.  **Response & Cache**: The Resolver caches the IP address for the duration of the TTL and returns it to the browser. The browser then establishes a TCP connection to the server.
+
+---
+
+## 3. DNS Record Types
+
+The authoritative database stores DNS records in specific formats:
+
+| Record Type | Purpose | Example Value | Description |
+| :--- | :--- | :--- | :--- |
+| **A** | Host to IPv4 | \`example.com ──► 93.184.216.34\` | Maps domain directly to an IPv4 address. |
+| **AAAA** | Host to IPv6 | \`example.com ──► 2606:2800:220::1\` | Maps domain to a 128-bit IPv6 address. |
+| **CNAME** | Alias to another domain | \`www.example.com ──► example.com\` | Redirects a subdomain to another domain. Cannot coexist with other records. |
+| **ALIAS / ANAME** | Root Domain Alias | \`example.com ──► my-alb.aws.com\` | Solves the CNAME limitation at the apex root. Resolves server-side to return an A record. |
+| **MX** | Mail Exchange | \`example.com ──► mail.example.com\` | Specifies mail servers responsible for receiving email. |
+| **NS** | Name Server | \`example.com ──► ns1.provider.com\` | Delegates a DNS zone to use a specific authoritative server. |
+| **TXT** | Text Metadata | \`example.com ──► v=spf1 include:...\` | Holds arbitrary text; used for domain verification and security (SPF, DKIM). |
+| **SRV** | Service Discovery | \`_sip._tcp ──► 5060 server.com\` | Defines the specific IP, port, and protocol for a service. Crucial for K8s/microservices. |
+| **CAA** | Cert Authority | \`example.com ──► letsencrypt.org\` | Restricts exactly which Certificate Authorities can issue SSL/TLS certificates for the domain. |
+| **PTR** | Pointer (Reverse) | \`34.216.184.93 ──► example.com\` | The reverse of an A record (IP to Domain). Vital for logging and email spam verification. |
+---
+
+## 4. DNS Caching & TTL (Time-To-Live)
+
+DNS query resolution is computationally and network-wise expensive. To minimize latency, caching is implemented at every level:
+
+*   **Browser Cache**: Holds records for a few minutes.
+*   **OS Cache**: System-wide caching.
+*   **Router Cache**: Local network caching.
+*   **Recursive Resolver Cache**: Caches records globally for all users utilizing that resolver.
+
+### Managing Cache Expiry (TTL)
+
+TTL (Time-To-Live) is the expiration timer set by the authoritative server, telling caches how long they can serve a record before checking back.
+
+\`\`\`typescript
+interface DNSCacheEntry {
+    domain: string;
+    ipAddress: string;
+    ttlSeconds: number;
+    cachedAt: number; // Unix timestamp
+}
+
+function isCacheExpired(entry: DNSCacheEntry): boolean {
+    const ageSeconds = (Date.now() - entry.cachedAt) / 1000;
+    return ageSeconds >= entry.ttlSeconds;
+}
+\`\`\`
+
+*   **Short TTL (e.g., 60s - 300s)**: High flexibility. If you change your server's IP, the change propagates rapidly. However, it increases read latency and load on your DNS servers.
+*   **Long TTL (e.g., 86400s / 24 hours)**: High speed. Clients retrieve cached records locally. However, migrating servers requires planning, as stale IPs will remain cached globally for up to 24 hours.
+
+---
+
+## 5. Anycast Routing in DNS
+
+To handle millions of queries per second and mitigate DDoS attacks, DNS providers use **Anycast Routing**.
+
+Unlike **Unicast** (where one IP routes to exactly one server), **Anycast** allows multiple servers in different physical locations to share the exact same IP address.
+
+<Mermaid chart='flowchart LR[nl]
+    ClientUS["User (USA)"] -->|Queries 1.1.1.1| EdgeUS["Edge Server (New York)"][nl]
+    ClientEU["User (Germany)"] -->|Queries 1.1.1.1| EdgeEU["Edge Server (Frankfurt)"][nl]
+    ClientAS["User (Japan)"] -->|Queries 1.1.1.1| EdgeAS["Edge Server (Tokyo)"]' />
+
+*   **How it works**: The BGP (Border Gateway Protocol) routing path directs users to the topologically "nearest" data center advertising the Anycast IP.
+*   **Resiliency**: If the New York server goes down, BGP automatically re-routes US traffic to the next closest healthy server (e.g., Chicago or Frankfurt), ensuring 100% availability.
+
+---
+
+## 6. DNS-Based Load Balancing
+
+Before traffic even reaches your load balancers or application servers, you can balance load at the DNS layer:
+
+1.  **Round-Robin DNS**: The authoritative server holds multiple \`A\` records for a single domain. When queried, it returns the list of IPs in a rotating order.
+    \`\`\`text
+    Request 1: example.com ──► [192.168.1.10, 192.168.1.11, 192.168.1.12]
+    Request 2: example.com ──► [192.168.1.11, 192.168.1.12, 192.168.1.10]
+    \`\`\`
+2.  **Weighted Round-Robin**: Directs a larger percentage of traffic to high-capacity servers (e.g., 70% to Server A, 30% to Server B).
+3.  **Geolocation DNS**: Resolves queries based on the client's country/region. A user in Tokyo gets resolved to a Tokyo data center IP, while a user in London gets a London IP, reducing initial page-load latency.
+
+---
+
+## 7. DNS Security: Attacks & Mitigation
+
+Because the original DNS design (RFC 1034/1035) prioritized speed over security, it is vulnerable to exploitation.
+
+### Common Attacks
+
+*   **DNS Cache Poisoning**: Attackers inject fake DNS data into a recursive resolver's cache. Users attempting to visit \`bank.com\` are redirected to a phishing clone.
+*   **DNS Hijacking**: Modifying the DNS settings on the registrar or the server itself to point to malicious IPs.
+*   **DNS Amplification DDoS**: Attackers send small spoofed queries (with the victim's IP as source) to open DNS resolvers, requesting large TXT records. The resolvers amplify the traffic volume and flood the victim.
+
+### Protection Frameworks
+
+*   **DNSSEC (Domain Name System Security Extensions)**: Adds cryptographic digital signatures to existing DNS records. Resolvers verify these signatures against a chain of trust starting at the Root Zone, guaranteeing that the records have not been tampered with.
+*   **DNS over HTTPS (DoH) / DNS over TLS (DoT)**: Traditional DNS queries are sent in plaintext, allowing ISPs or attackers on public Wi-Fi to sniff domain lookups. DoH/DoT encrypts queries within an HTTPS or TLS session, preventing eavesdropping and man-in-the-middle manipulation.
+
+---
+
+## 8. Advanced Engineering Considerations
+
+System designers must understand the limitations of DNS at scale, particularly regarding routing precision and cache staleness.
+
+### EDNS Client Subnet (ECS) & Geolocation
+Traditional DNS masks user IPs because the Authoritative Server only sees the Recursive Resolver's IP. If a user in Tokyo uses a public resolver located in the US, standard Geolocation DNS will mistakenly route them to a US data center.
+
+* **The Fix:** **ECS (RFC 7871)** allows recursive resolvers to forward the first few octets of the user’s IP address (e.g., \`192.168.1.0/24\`) to the authoritative server. This ensures localized routing accuracy for Geolocation DNS without violating user privacy.
+
+### The Failover Limitation (Sticky Cache)
+DNS is a slow-moving control plane. If an active server dies, updating a DNS record to point to a backup server introduces a propagation delay dictated by the TTL. Because downstream ISPs, browsers, and routers ignore TTLs or enforce minimums, a significant percentage of users will continue to hit the dead server long after you update your records.
+
+> **Architectural Law:** Never rely on DNS for zero-downtime, instantaneous application failover. Instead, use DNS to point to an Anycast-backed Layer 4/7 Load Balancer or Reverse Proxy fleet, which handles sub-second health-checks and routes traffic dynamically away from dead compute instances.
+
+---
+
+## 9. Best Practices for System Designers
+
+1.  **Dual-DNS Provider Strategy**: Avoid absolute dependence on a single provider (e.g., Dyn DNS outage in 2016). Use two independent authoritative DNS providers.
+2.  **Graceful TTL Transition**: When preparing for server migrations, reduce the record's TTL to 5 minutes at least 24 hours in advance. Once the migration is complete, restore the TTL to 24 hours.
+3.  **Implement Anycast & Geolocation**: Always front your applications with an Anycast DNS provider (e.g., Cloudflare, Route 53) to guarantee low-latency connections globally.
+`;
+
+export default dnsRaw;

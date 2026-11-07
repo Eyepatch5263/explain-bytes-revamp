@@ -1,5 +1,4 @@
-/* Marginalia Lab design reminder: all global style should feel like a warm technical dossier—ink, paper, precise grids, cobalt evidence, and selective Signal Coral. */
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inria+Sans:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Instrument+Serif:ital@0;1&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "katex/dist/katex.min.css";
@@ -8,7 +7,7 @@
 
 @theme inline {
   --font-display: "Instrument Serif", Georgia, serif;
-  --font-body: "Manrope", Arial, sans-serif;
+  --font-body: "Inria Sans", Arial, sans-serif;
   --font-mono: "DM Mono", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -106,7 +105,6 @@
 .dark .dark-theme-page { background: #0f1513; color: #f4efe7; }
 .dark .dark-header { background: rgba(15, 21, 19, .94) !important; border-color: rgba(244, 239, 231, .14) !important; }
 .dark .dark-header :where(a, button, span) { color: #f4efe7; }
-.dark .dark-header > div > a:last-of-type { background: #e66b5b; color: #171211; }
 .dark .dark-header .theme-toggle { border-color: rgba(244, 239, 231, .24); color: #ffb0a5; }
 .dark .dark-header .theme-toggle:hover { border-color: #e66b5b; background: rgba(230, 107, 91, .12); }
 .dark .dark-header > nav { background: #101714 !important; border-color: rgba(244, 239, 231, .16) !important; box-shadow: 0 18px 28px rgba(0, 0, 0, .22); }

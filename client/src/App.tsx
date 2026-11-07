@@ -21,30 +21,24 @@ function Router() {
     const [location] = useLocation();
     const deckSlug = location.split("/")[2];
     return (
-      <ProtectedRoute>
         <Suspense fallback={<LoadingSkeleton label="Opening study room" />}>
           <Flashcards deckSlug={deckSlug} />
         </Suspense>
-      </ProtectedRoute>
     );
   };
   const SystemDesignRoute = () => {
     const [location] = useLocation();
     const parts = location.split("/").filter(Boolean);
     return (
-      <ProtectedRoute>
         <Suspense fallback={<LoadingSkeleton kind="reader" label="Preparing Flash Docs" />}>
           <SystemDesignReader slug={parts[2]} view={parts[3]} />
         </Suspense>
-      </ProtectedRoute>
     );
   };
   const ProtectedFlashDocs = () => (
-    <ProtectedRoute>
       <Suspense fallback={<LoadingSkeleton label="Opening Explain Bytes library" />}>
         <FlashDocs />
       </Suspense>
-    </ProtectedRoute>
   );
 
   return (

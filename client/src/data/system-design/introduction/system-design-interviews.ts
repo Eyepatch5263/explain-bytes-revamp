@@ -1,0 +1,586 @@
+export const systemDesignInterviewsRaw = `---
+title: System Design Interviews
+description: A structured, step-by-step framework to tackle system design interview questions at tech companies.
+order: 2
+category: Introduction
+---
+
+## Introduction
+
+System design interviews can feel intimidating because they are open-ended, conversational, and have no single "correct" answer. Rather than looking for a specific algorithm or piece of code, interviewers want to evaluate your **engineering intuition**, **communication skills**, and **ability to weigh trade-offs under constraints**.
+
+To succeed, you need a structured, repeatable framework. Instead of jumping straight to drawing databases and servers, you must guide the interviewer through a logical path from ambiguity to a concrete architecture.
+
+---
+
+## The 4-Step System Design Interview Framework
+
+A typical system design interview lasts 45 to 60 minutes. You should manage your time by following this standard four-step lifecycle:
+
+<Mermaid chart='flowchart TD[nl]
+    A["Step 1: Understand the Problem[br]& Scope the System[br] 5-10 mins"] --> B["Step 2: Propose High-Level Design[br]& Get Buy-in[br] 10-15 mins"][nl]
+    B --> C["Step 3: Design Deep Dive[br]& Scale the Bottlenecks[br] 15-25 mins"][nl]
+    C --> D["Step 4: Wrap Up & Identify[br]Future Enhancements[br] 5 mins"]' />
+
+
+---
+
+### Step 1: Understand the Problem & Scope (5-10 minutes)
+
+System design questions are intentionally vague (e.g., *"Design Twitter"*). Your first task is to narrow down the scope. Never start designing without asking clarifying questions.
+
+#### What to clarify:
+1. **Functional Requirements**: What are the core features we *must* support? (e.g., Can users post images? Can they follow others? Do we need a search feature?)
+2. **Non-functional Requirements**: What are the system's operational constraints? (e.g., High availability vs. strong consistency? What is the acceptable latency for a read/write?)
+3. **Scale & Traffic**: How many active users (DAU/MAU)? What is the anticipated volume of reads vs. writes? (e.g., 100M DAU, read-to-write ratio of 100:1).
+4. **Out of Scope**: Explicitly state what you will *not* design to keep the scope manageable.
+
+#### Example Walkthrough:
+* **Interviewer**: "Design WhatsApp."
+* **You**:
+  * *"Are we supporting group chats, or only one-on-one chats?"* (One-on-one first, groups if time permits)
+  * *"Should we support media attachments (images/videos) or only text?"* (Start with text, support media storage next)
+  * *"Do we need to store messages permanently, or delete them after delivery?"* (Store permanently for multi-device sync)
+
+---
+
+### Step 2: Propose High-Level Design (10-15 minutes)
+
+In this stage, your goal is to sketch a high-level architecture showing the core components and the data flow. Do not get bogged down in database schemas, indexes, or specific load-balancing algorithms yet.
+
+#### Key Actions:
+1. **Define APIs**: Write down the primary API endpoints needed to support the functional requirements. Use REST or gRPC format.
+   * \`POST /v1/messages\` (Send a message)
+   * \`GET /v1/conversations/{id}/messages\` (Retrieve chat history)
+2. **Sketch Core Components**: Draw the clients, gateways, application servers, databases, and caches.
+3. **Trace the Data Flow**: Explain what happens when a user triggers a write or read operation.
+
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor Client A[nl]
+    participant Gateway as API Gateway[nl]
+    participant DB as Message Database[nl]
+    actor Client B[nl]
+[nl]
+    Client A->>Gateway: POST /v1/messages (text, receiver_id)[nl]
+    Gateway->>DB: Save message to Disk[nl]
+    Gateway-->>Client A: 200 OK (message_id)[nl]
+    Gateway->>Client B: Push Message via WebSocket' />
+
+---
+
+### Step 3: Design Deep Dive (15-25 minutes)
+
+Once the interviewer approves your high-level design, dive into the most critical bottlenecks. This is where you demonstrate your depth of knowledge.
+
+#### Typical Deep Dive Topics:
+* **Database Selection**: Why choose a Relational DB (e.g., PostgreSQL for transactions) vs. NoSQL (e.g., Cassandra for massive write throughput of chat logs)?
+* **Scaling & Partitioning**: How do we partition (shard) the database? By \`user_id\` or \`conversation_id\`? How do we handle hot shards?
+* **Caching Strategy**: Where should caches (e.g., Redis) be placed? What eviction policy (LRU, LFU) is appropriate?
+* **Real-time Communication**: Should we use WebSockets, Long Polling, or Server-Sent Events (SSE)?
+* **System Resilience**: How do we handle server failures? (e.g., replication, leader election, failover mechanisms).
+
+---
+
+### Step 4: Wrap Up (5 minutes)
+
+Use the remaining time to summarize your design and highlight its strengths and weaknesses.
+
+#### Focus Areas:
+* **Review against requirements**: Walk through how your design solves the functional and non-functional requirements defined in Step 1.
+* **Identify Bottlenecks**: Be honest. No system is perfect. Where is the single point of failure (SPOF)? What happens if the cache layer goes down?
+* **Propose Improvements**: Suggest how you would improve monitoring, logging, or scale the system to the next order of magnitude (e.g., adding multi-region replication).
+
+---
+
+## How to Frame Trade-offs
+
+A great system design engineer doesn't suggest "silver bullets." Every decision is a compromise. Use the following trade-off matrices to articulate your choices during the interview:
+
+### Caching Trade-off
+| Option | Advantages | Disadvantages | Best For |
+| :--- | :--- | :--- | :--- |
+| **Write-Through Cache** | No stale data in cache. | Higher write latency. | Systems requiring immediate consistency. |
+| **Write-Back Cache** | Extremely fast write speeds. | Risk of data loss if cache crashes. | Write-heavy systems (e.g., logging). |
+
+#### Write-Through Cache Flow
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor Client[nl]
+    participant Cache as Cache (Redis)[nl]
+    participant DB as Database[nl]
+[nl]
+    Client->>Cache: 1. Write Request[nl]
+    Cache->>DB: 2. Write Data (Synchronous)[nl]
+    DB-->>Cache: 3. Acknowledge Write[nl]
+    Cache-->>Client: 4. Success Response' />
+
+#### Write-Back Cache Flow
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor Client[nl]
+    participant Cache as Cache (Redis)[nl]
+    participant DB as Database[nl]
+[nl]
+    Client->>Cache: 1. Write Request[nl]
+    Cache-->>Client: 2. Success Response (Immediate)[nl]
+    Note over Cache, DB: Asynchronous Write Back (later)[nl]
+    Cache->>DB: 3. Write Data (Async batch)[nl]
+    DB-->>Cache: 4. Acknowledge Write' />
+
+
+### Consistency vs. Availability (CAP Theorem)
+* **CP (Consistency + Partition Tolerance)**: Reject reads/writes if replica sync is broken. Use for banking or payment ledgers.
+* **AP (Availability + Partition Tolerance)**: Allow stale reads to keep the service running. Use for social media feeds, chat, or comments.
+
+---
+
+## Step-by-Step Mock Interview: Real-Time Chat App
+
+To see the four steps in action, let's walk through a complete mock interview for designing a real-time chat application (like WhatsApp or Slack).
+
+### Step 1: Understand the Problem & Scope (5-10 mins)
+
+> [!NOTE]
+> The candidate starts by asking clarifying questions to establish functional and non-functional requirements.
+
+**Candidate:** "To narrow down the scope, is this chat app one-on-one, group-based, or both?"
+**Interviewer:** "Let's focus on one-on-one chat first, but keep group chat in mind as a future scaling requirement."
+
+**Candidate:** "Should we support multimedia (images/videos) or just text messages?"
+**Interviewer:** "Mainly text messages. We can store metadata for attachments, but let's focus on text delivery mechanics first."
+
+**Candidate:** "What is the expected scale of the system? How many active users are we designing for?"
+**Interviewer:** "Let's assume **50 Million Daily Active Users (DAU)**. An average user sends 100 messages per day."
+
+**Candidate:** "Okay, let's do some quick back-of-the-envelope calculations to understand our constraints:"
+* **Daily Message Volume:** 50,000,000 users × 100 messages/day = **5 Billion messages/day**.
+* **Writes per second (TPS):** 5,000,000,000 messages / 86,400 seconds ≈ **60,000 Write TPS**.
+* **Peak TPS (2x average):** **120,000 TPS**.
+* **Storage requirements:** If an average message is 100 bytes (including metadata like IDs, timestamps, sender/receiver info):
+  * 5 Billion messages × 100 bytes = **500 GB of new text data per day**.
+  * Over 5 years: 500 GB × 365 days × 5 years ≈ **900 Terabytes**.
+* **Bandwidth requirements:**
+  * **Ingress (incoming payload):**
+    * Average: 60,000 messages/s × 100 bytes = 6 MB/s (48 Mbps).
+    * Peak: 120,000 messages/s × 100 bytes = 12 MB/s (96 Mbps).
+  * **Egress (outgoing payload):**
+    * Since this is 1-to-1 chat, every message sent is delivered to exactly one recipient. Egress bandwidth is equivalent to ingress bandwidth.
+    * Average: 6 MB/s (48 Mbps).
+    * Peak: 12 MB/s (96 Mbps).
+* **Concurrent Connections:** If 10% of our daily active users are online at any given moment:
+  * 50 Million × 10% = **5 Million concurrent WebSocket connections**.
+
+**Interviewer:** "Excellent analysis. This tells us we are dealing with a write-heavy system with high concurrency and huge storage requirements."
+
+---
+
+### Step 2: Propose High-Level Design & Get Buy-in (10-15 mins)
+
+**Candidate:** "First, let's look at the APIs we need. We'll need a way to send messages and retrieve history."
+* \`POST /v1/messages\` (For HTTP backup/REST client fallback)
+* \`GET /v1/conversations?limit={limit}&cursor={cursor}\` (Fetch chat list with keyset pagination)
+* \`GET /v1/sync?cursors={channel_id_map}\` (Delta synchronization using multi-channel sync cursors)
+
+**Candidate:** "Since we need low-latency, real-time communication, standard HTTP polling will put too much load on our servers. I propose using **WebSockets** for active connections. A client connects once, upgrades the connection to WebSocket, and keeps it open."
+
+**Interviewer:** "How does the system look architecture-wise?"
+
+**Candidate:** "Here is the high-level design:"
+
+<Mermaid chart='graph TD[nl]
+    ClientA["Client A (Active)"] -->|WebSocket| ChatSrvA["Chat Server A"][nl]
+    ClientB["Client B (Active)"] -->|WebSocket| ChatSrvB["Chat Server B"][nl]
+[nl]
+    ChatSrvA -->|Session Lookup| Redis["Redis Session Store (User -> Server ID)"][nl]
+    ChatSrvA -->|Publish Event| MQ["Kafka Message Queue / PubSub"][nl]
+[nl]
+    MQ --> ChatSrvB[nl]
+    ChatSrvB -->|Push Message| ClientB' />
+
+**Interviewer:** "Let's trace the flow of establishing a connection first. Can you draw a sequence diagram showing how Client A connects to the chat server?"
+
+**Candidate:** "Absolutely. The client first authenticates and gets routed via the load balancer to an available chat server:"
+
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor ClientA as Client A[nl]
+    participant LB as Load Balancer[nl]
+    participant GW as API Gateway / Auth[nl]
+    participant SD as Service Discovery (Consul)[nl]
+    participant CS_A as Chat Server A[nl]
+    participant Redis as Redis Session Store[nl]
+[nl]
+    ClientA->>LB: HTTP GET /connect (with Auth Token)[nl]
+    LB->>GW: Forward Request[nl]
+    Note over GW: Validates Token and[br]Fetches User Profile[nl]
+    GW->>SD: Query least loaded Chat Server[nl]
+    SD-->>GW: Return Chat Server A IP/Metadata[nl]
+    GW-->>LB: Return Route Details[nl]
+    LB-->>ClientA: HTTP 101 Switching Protocols (Redirect to Chat Server A)[nl]
+    [nl]
+    Note over ClientA, CS_A: Direct WebSocket Upgrade Handshake[nl]
+    ClientA->>CS_A: WS Connection Request[nl]
+    CS_A->>Redis: Register Session (User A -> Chat Server A)[nl]
+    CS_A-->>ClientA: Connection Established (Persistent TCP)' />
+
+**Interviewer:** "This looks solid. Let's move further in our design."
+
+---
+
+### Step 3: Design Deep Dive (15-25 mins)
+
+#### 1. Message Delivery Flow
+**Interviewer:** "Now, let's dive deep into the core scenario. Client A sends a message to Client B. Client A is connected to Chat Server A, and Client B is connected to Chat Server B. How does the message get routed in real time?"
+
+**Candidate:** "Here is the sequence flow for delivering a message between two active clients on different servers. Notice that we decouple the real-time delivery path from data persistence to prevent blocking the WebSocket server with database network overhead:"
+
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor ClientA as Client A[nl]
+    participant CS_A as Chat Server A[nl]
+    participant Kafka as Kafka (Message Queue)[nl]
+    participant DB_Worker as Chat History Consumer[nl]
+    participant DB as Message DB (Cassandra)[nl]
+    participant Redis as Redis (Session + Pub/Sub)[nl]
+    participant CS_B as Chat Server B[nl]
+    actor ClientB as Client B[nl]
+[nl]
+    ClientA->>CS_A: Send Message (To User B)[nl]
+    [nl]
+    %% Asynchronous ingestion[nl]
+    CS_A->>Kafka: Publish to "incoming-messages" topic[nl]
+    CS_A-->>ClientA: Ack (Message Received by Server)[nl]
+[nl]
+    par Async DB Persist[nl]
+        Kafka->>DB_Worker: Consume Message[nl]
+        DB_Worker->>DB: Write Message (Status: Sent)[nl]
+    and Real-time Routing[nl]
+        CS_A->>Redis: Lookup User B Session / Publish to Channel "user:B"[nl]
+        Note over Redis: Redis routes message instantly[br]to whichever server is listening[nl]
+        Redis-->>CS_B: Deliver Message Payload[nl]
+    end[nl]
+[nl]
+    %% Delivery to client[nl]
+    CS_B->>ClientB: Forward Message over WebSocket[nl]
+    ClientB-->>CS_B: Acknowledge Receipt[nl]
+    [nl]
+    %% Async Status Update[nl]
+    CS_B->>Kafka: Publish Status Update (MsgID, Delivered)[nl]
+    Kafka->>DB_Worker: Consume Status Update[nl]
+    DB_Worker->>DB: Update Message Status (Delivered)' />
+
+**Interviewer:** "What happens if Client B is offline? Where does the flow go?"
+
+**Candidate:** "If Client B's session is not found in Redis (returns null), the real-time pipeline gracefully falls back to an asynchronous push notification network. Chat Server B is bypassed completely:"
+
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor Client_A as Client A[nl]
+    participant CS_A as Chat Server A[nl]
+    participant Kafka as Kafka (Message Queue)[nl]
+    participant DB_Worker as Chat History Consumer[nl]
+    participant DB as Message DB (Cassandra)[nl]
+    participant Redis as Redis (Session Store)[nl]
+    participant Push_Svc as Push Notification Service[nl]
+    participant Gateway as Push Gateway (FCM/APNs)[nl]
+    actor Client_B as Client B (Offline)[nl]
+[nl]
+    Client_A->>CS_A: Send Message (To User B)[nl]
+    CS_A->>Kafka: Publish to "incoming-messages" topic[nl]  
+    CS_A-->>Client_A: Ack (Sent)[nl]
+[nl]
+    %% Background Persistence[nl]
+    Kafka->>DB_Worker: Consume Message[nl]
+    DB_Worker->>DB: Write Message (Status: Sent)[nl]
+[nl]
+    %% Session Lookup and Offline Handling[nl]
+    CS_A->>Redis: Lookup User B Session[nl]
+    Redis-->>CS_A: Return NULL (User Offline)[nl]
+    [nl]
+    %% Push Notification Trigger[nl]
+    CS_A->>Push_Svc: Trigger Push Notification (User B, Payload)[nl]
+    Push_Svc->>DB: Fetch Device Token for User B[nl]
+    DB-->>Push_Svc: Return Device Token[nl]
+    Push_Svc->>Gateway: Forward Payload + Device Token[nl]
+    Gateway-->>Client_B: Wake up device / Show Banner Notification' />
+
+**Interviewer:** "How would you scale the chat servers, and what metrics would you monitor?"
+
+**Candidate:** "To scale the stateful chat tier, we use horizontal autoscaling fleets managed by core runtime performance metrics. Because connections are sticky, load is managed via active connection balancing rather than simple request round-robins:"
+
+<Mermaid chart='graph TD[nl]
+    LB[Load Balancer] --> CS1[Chat Server 1][nl]
+    LB --> CS2[Chat Server 2][nl]
+    LB --> CS3[Chat Server 3][nl]
+    LB --> CS4[Chat Server 4][nl]
+[nl]
+    subgraph "Auto-Scaling Group"[nl]
+        CS1[nl]
+        CS2[nl]
+        CS3[nl]
+        CS4[nl]
+    end[nl]
+[nl]
+    %% Metrics[nl]
+    LB -.->|Metrics| Metrics[Monitoring System][nl]
+    Metrics -->|Graph| Grafana[Grafana Dashboard][nl]
+    Metrics -->|Alerts| PagerDuty[PagerDuty][nl]
+[nl]
+    Grafana -.->|Metrics| CPU_Load["CPU Utilization > 70%"][nl]
+    Grafana -.->|Metrics| Memory["Memory Usage > 80%"][nl]
+    Grafana -.->|Metrics| WS_Count["Active WebSocket Count > 5M"][nl]
+    Grafana -.->|Metrics| Latency["Avg Latency > 200ms"][nl]
+[nl]
+    CPU_Load -.->|Alert| PagerDuty[nl]
+    Memory -.->|Alert| PagerDuty[nl]
+    WS_Count -.->|Alert| PagerDuty[nl]
+    Latency -.->|Alert| PagerDuty' />
+
+#### 2. Database Selection & Primary Key Schema
+**Interviewer:** "You chose Cassandra for the message database. Why? And how would the primary key look?"
+
+**Candidate:** "We selected Cassandra because:
+1. **High Write Throughput:** It uses an LSM-tree storage engine that transforms random disk writes into structured, append-only sequential operations (via CommitLog and MemTables), making writes extremely fast.
+2. **Horizontal Scaling:** No single point of failure; data scales lineally by adding commodity server instances to the cluster rings.
+
+To support retrieving chat history efficiently, we optimize the physical storage engine for the query pattern: *'Give me all messages between User A and User B sorted by timestamp.'*
+
+\`\`\`sql
+CREATE TABLE messages (
+    channel_id text,
+    message_id timeuuid,
+    sender_id text,
+    content text,
+    status text,
+    PRIMARY KEY (channel_id, message_id)
+) WITH CLUSTERING ORDER BY (message_id DESC);
+\`\`\`
+
+## 3. Scaling for Group Chats
+
+**Interviewer:** "How would you handle group chats? Imagine a group with 10,000 members. If one member sends a message, how do you deliver it to the other 9,999 members without overloading the system?"
+
+**Candidate:** "Group chats introduce the challenge of **fan-out write amplification**. If we write a message 10,000 times to the database immediately or execute 10,000 sequential cache lookups on the main thread, we will freeze the chat server.
+
+We resolve this by decoupling the broadcast pipeline using workers and batching internal server requests:
+* **Group Service:** A dedicated microservice handles group membership mapping arrays internally ($User\\_ID \\rightarrow Group\\_ID$).
+* **Message Fan-out Executors:** The Chat Server dumps a single group message to a Kafka \`group-messages\` topic and immediately returns a success status to the sender. A pool of background workers pulls the event, fetches the membership roster, and processes routing concurrently.
+* **Local Session Routing Optimization:** Instead of querying Redis individual keys sequentially for 10,000 users, we execute a pipelined batch lookup. The executor then groups target recipient user IDs by their assigned Chat Server location. If 4,000 users are active on Chat Server B, we send **one unified RPC request** containing the payload and the 4,000 IDs to Server B. Server B unboxes it and loops locally through its active WebSockets."
+
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor ClientA as Client A[nl]
+    participant CS_A as Chat Server A[nl]
+    participant Kafka as Kafka (group-messages)[nl]
+    participant FO_Exec as Fan-out Executor[nl]
+    participant Group_Svc as Group Service[nl]
+    participant Redis as Redis Session Store[nl]
+    participant CS_B as Chat Server B[nl]
+    actor ClientB as Client B (Group Member)[nl]
+    ClientA->>CS_A: Send Message to Group_XYZ[nl]
+    CS_A->>Kafka: Publish payload to "group-messages" topic[nl]
+    CS_A-->>ClientA: Ack (Sent)[nl]
+[nl]
+    %% Fan-out process begins[nl]
+    Kafka->>FO_Exec: Consume group message[nl]
+    FO_Exec->>Group_Svc: Get all Member IDs for Group_XYZ[nl]
+    Group_Svc-->>FO_Exec: Return 10,000 User IDs[nl]
+[nl]
+    Note over FO_Exec, Redis: Optimization: PIPELINED LOOKUP[br]Query all 10,000 sessions in batches[nl]
+    FO_Exec->>Redis: Look up servers for 10,000 Users[nl]
+    Redis-->>FO_Exec: Return map (e.g., 4,000 on Server B, 3,000 on Server C...)[nl]
+[nl]
+    %% Grouping optimization[nl]
+    Note over FO_Exec: Group members by their Chat Server.[br]Instead of 4,000 individual messages,[br]send 1 bulk packet to Chat Server B.[nl]
+[nl]
+    FO_Exec->>CS_B: Bulk Forward Payload (For its 4,000 active users)[nl]
+[nl]
+    loop 4,000 times (Concurrently)[nl]
+        CS_B->>ClientB: Push over individual WebSockets[nl]
+    end' />
+
+**Interviewer:** "What about typing indicators? If 10,000 users type in a group chat, how do you handle the typing broadcast?"
+
+**Candidate:** "Typing indicators are transient, high-frequency, and short-lived. Saving them to Cassandra or queuing them in Kafka would put a catastrophic, unnecessary load on our databases. Instead, we treat typing indicators as entirely ephemeral, fire-and-forget events that bypass persistence structures.
+
+* **Bypass Storage (In-Memory Redis Pub/Sub):** When Client A types, it issues a lightweight WebSocket event. The chat server publishes this instantly to an in-memory Redis Pub/Sub channel keyed to the room (\`group:Group_XYZ:typing\`).
+* **Active Client Optimization (Room Filters):** To prevent overloading client devices, servers keep track of which users are actively looking at the room (\`entering_room\` / \`leaving_room\` signals). If Server B hosts 4,000 group members, but only 5 currently have the chat screen active, Server B pushes the typing packet to those 5 WebSockets. The other 3,995 idle connections are ignored.
+* **Client-side Throttling & Fading:** The sender UI throttles keystroke broadcasts to once every 5 seconds. To protect against lost network packets, the receiver app uses UI-driven expiration: it displays typing dots and initiates a 6-second countdown. If no fresh network update arrives within that window, the animation automatically fades out."
+
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor ClientA as Client A[nl]
+    participant CS_A as Chat Server A[nl]
+    participant Redis as Redis Pub/Sub[nl]
+    participant CS_B as Chat Server B[nl]
+    actor ClientB as Client B (In Group)[nl]
+    ClientA->>CS_A: WS Message: {"type": "TYPING", "group_id": "Group_XYZ"}[nl]
+[nl]
+    %% Instant Broadcast via Redis Pub/Sub[nl]
+    Note over CS_A, Redis: Bypasses Kafka and Cassandra entirely![nl]
+    CS_A->>Redis: PUBLISH channel "group:Group_XYZ:typing" [br] Payload: {"user": "User A"}[nl]
+[nl]
+    %% Redis instantly delivers this to all servers subscribed to that group[nl]
+    Redis-->>CS_B: Deliver Typing Payload[nl]
+[nl]
+    %% Server B checks who is looking at this group right now[nl]
+    Note over CS_B: Optimization: Only push to users[br]currently active in Group_XYZ[nl]
+    CS_B->>ClientB: WS Message: "User A is typing..."[nl]
+[nl]
+    %% Auto-expire on Client UI[nl]
+    Note over ClientB: Client UI automatically fades out[br]indicator after 6 seconds if no[br]new event arrives.' />
+
+### 4. Message Ordering and Clock Drift
+
+**Interviewer:** "In a distributed system with multiple chat servers, how do you ensure that messages are displayed in the exact order they were sent? What if server clocks are slightly out of sync (clock drift)?"
+
+**Candidate:** "Relying on database timestamps or server wall-clock times is risky because of physical clock drift. Servers use NTP to sync, but hardware crystals drift. If Server A runs 15ms ahead of Server B, messages can be saved out of sequence.
+
+To guarantee strict message ordering, we can use two distinct strategies depending on scale constraints:
+1. **Chat-level Sequence Numbers:** We maintain an atomic counter for each conversation channel (e.g., via Redis \`INCR\`). Each new message gets a sequence number incremented by 1 (\`seq=1\`, \`seq=2\`). This guarantees strict chronological order within that chat. However, every single incoming message must perform a blocking network call to Redis before database storage, introducing a centralized throughput bottleneck.
+
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor ClientA as Client A[nl]
+    participant CSP as Chat Server[nl]
+    participant Redis as Redis (Atomic Counter)[nl]
+    participant DB as Cassandra[nl]
+    ClientA->>CSP: Send "Hello" to Channel_123[nl]
+    CSP->>Redis: INCR conversation:123:seq[nl]
+    Redis-->>CSP: Return sequence number: 1[nl]
+    CSP->>DB: Write Message (channel_id=123, seq=1, text="Hello")[nl]
+[nl]
+    ClientA->>CSP: Send "World" to Channel_123[nl]
+    CSP->>Redis: INCR conversation:123:seq[nl]
+    Redis-->>CSP: Return sequence number: 2[nl]
+    CSP->>DB: Write Message (channel_id=123, seq=2, text="World")' />
+
+2. **Snowflake IDs (Distributed Coordination-Free Ordering):** We can generate unique, 64-bit binary IDs directly on each chat server node using a custom epoch timestamp layout. Because the timestamp component resides in the most significant bits, these numbers are natively sortable.
+
+To protect against clock drift in production Snowflake generators, the ID generation library monitors system execution. If it detects that the current local system clock has drifted behind the timestamp of the last generated ID, it immediately pauses thread generation, blocking new IDs until the physical system clock catches up to reality."
+
+### 5. Efficient Media Uploads
+
+**Interviewer:** "How do you handle photo and video attachments? Would you send them directly through the WebSocket connection?"
+
+**Candidate:** "No, pushing raw binary objects down WebSockets is an anti-pattern. It inflates socket buffer memories, induces head-of-line blocking, and stalls low-latency text channels. Instead, we use an offloaded media ingestion pipeline:
+* **Architectural Separation:** WebSockets are restricted to handling lightweight metadata payloads. The heavy lifting of large binary file transfers is entirely shifted onto an asynchronous network built around dedicated object storage.
+* **Pre-Upload Security Guardrails:** The client performs a handshake with our API Gateway before transferring bytes. It passes a validation payload specifying the asset's \`file_size\` and \`mime_type\`. Our gateway enforces strict app policy restrictions (e.g., rejecting executable files and blocking images larger than 25MB). Upon validation, the service returns a highly constrained, short-lived S3 presigned URL.
+* **Edge-Optimized Ingestion (Multipart):** For large files like videos, the client leverages S3 Multipart Upload paths via specialized presigned arrays. The asset is split locally into 5MB chunks and uploaded concurrently. If a single packet drops on a spotty cellular connection, only that specific part is retried, preserving data overhead.
+* **Ephemeral Metadata Notification:** Once the cloud storage layer responds with a \`200 OK\`, the client wraps the returned object identifiers and structural information (e.g., dimensions, video length, public CDN path) into a small JSON text wrapper. It passes this text over the WebSocket. The backend processes it with near-zero resource consumption.
+* **CDN-Accelerated Delivery Edge:** On the consumption side, reading apps **never** hit our origin S3 buckets directly—which would cause massive request latency and huge cloud data egress fees. Instead, all delivery assets are fronted by a globally distributed Content Delivery Network (CDN) edge cache. This mirrors viral or high-traffic attachments geographically close to recipient devices, maximizing download speeds."
+
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor Client_A as Client A[nl]
+    participant GW as API Gateway / Media Svc[nl]
+    participant S3 as Object Storage (S3)[nl]
+    participant CS_A as Chat Server A[nl]
+    participant Redis as Redis Pub/Sub[nl]
+    participant CS_B as Chat Server B[nl]
+    participant CDN as CDN Edge Cache[nl]
+    actor Client_B as Client B[nl]
+    %% Step 1: Secure Presigned URL Request[nl]
+    Client_A->>GW: POST /media/presign (filename, size, type)[nl]
+    Note over GW: Validates size under 25MB[br]and restricts content-type[nl]
+    GW-->>Client_A: Return Presigned URL + Unique Asset_ID[nl]
+[nl]
+    %% Step 2: Direct Binary Upload[nl]
+    Client_A->>S3: PUT /object_path (Binary Data) using Presigned URL[nl]
+    Note over S3: S3 validates signature and constraints.[br]Saves binary directly.[nl]
+    S3-->>Client_A: 200 OK (Upload Success)[nl]
+[nl]
+    %% Step 3: Metadata Notification via WebSockets[nl]
+    Client_A->>CS_A: WS Message: {"type": "IMAGE", "asset_id": "XYZ", "url": "cdn.com/path", "text": "Look at this!"}[nl]
+[nl]
+    %% Step 4: Real-time Routing[nl]
+    CS_A->>Redis: Publish to channel "user:B"[nl]
+    Redis-->>CS_B: Deliver Image Metadata Payload[nl]
+    CS_B->>Client_B: Forward Image Metadata over WebSocket[nl]
+[nl]
+    %% Step 5: Optimized Download via CDN[nl]
+    Note over Client_B: Client B renders the text layout instantly[br]and fetches binary through the edge cache[nl]
+    Client_B->>CDN: GET cdn.com/path[nl]
+[nl]
+    alt Cache Miss[nl]
+        CDN->>S3: Fetch original asset[nl]
+        S3-->>CDN: Return binary asset & cache it[nl]
+    end[nl]
+[nl]
+    CDN-->>Client_B: Render Image File' />
+
+### 6. User Reconnection & Synchronization
+
+**Interviewer:** "When a user has been offline (e.g., on a plane) and opens the app, how do we synchronize their missed messages without fetching the entire history?"
+
+**Candidate:** "We use a **Sync Cursor** mechanism. The client device stores the maximum message identifier or sequence boundary it has successfully processed locally. However, if a user is part of multiple active channels, providing a single global \`last_message_id\` will break ordering across different room partitions.
+
+To fix this, the client maintains a map of specific checkpoints for all its rooms. Upon reconnecting, it establishes an explicit API request before re-opening its WebSocket stream:
+* **The Request:** \`GET /v1/sync?cursors={"channel_1": 105, "channel_2": 44}\`
+* **The Range Query Execution:** The server processes the map and queries Cassandra. Because \`message_id\` acts as our clustering key, Cassandra performs an optimized range scan on disk (\`WHERE channel_id = 'X' AND message_id > Y\`), extracting only the missed deltas. Once the history catch-up finishes, the client updates its internal cursors and connects to a WebSocket to handle subsequent real-time streams."
+
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor Client A[nl]
+    participant GW as API Gateway / Sync Svc[nl]
+    participant Redis as Redis Session Store[nl]
+    participant DB as Message DB (Cassandra)[nl]
+    Note over Client A: App opens after airplane mode.[br]Reads local DB checkpoints.[nl]
+    Client A->>GW: GET /v1/sync?cursors={"chan_1": 105, "chan_2": 44}[nl]
+[nl]
+    Note over GW: Authenticates connection and[br]processes channel list[nl]
+[nl]
+    par Query Channel 1 Deltas[nl]
+        GW->>DB: SELECT * FROM messages WHERE channel_id="chan_1" AND message_id > 105[nl]
+        DB-->>GW: Return 3 missed messages[nl]
+    and Query Channel 2 Deltas[nl]
+        GW->>DB: SELECT * FROM messages WHERE channel_id="chan_2" AND message_id > 44[nl]
+        DB-->>GW: Return 0 missed messages[nl]
+    end[nl]
+[nl]
+    GW-->>Client A: HTTP 200 OK Response [JSON Payload of missed messages][nl]
+[nl]
+    Note over Client A: Renders new messages locally.[br]Updates maximum checkpoints to latest IDs.[nl]
+[nl]
+    %% Establish real-time path next[nl]
+    Note over Client A, Redis: Now safe to establish WebSocket for future real-time traffic[nl]
+    Client A->>GW: Upgrade to WebSocket[nl]
+    GW->>Redis: Register active session' />
+
+---
+
+### Step 4: Wrap Up & Trade-offs (5 mins)
+
+**Interviewer:** "Excellent job. What are the main trade-offs or weak points in this architecture?"
+
+**Candidate:** "Reflecting on our design, we have made five fundamental architectural trade-offs:
+
+1. **AP over CP in Storage & Routing:** To handle **120,000 peak writes/sec**, we chose Cassandra with Eventual Consistency and Redis Pub/Sub for routing. We prioritize Availability and Partition Tolerance. In the event of a network partition, some messages or typing indicators might arrive slightly out of order or be delayed, but the system will remain fully writable.
+2. **Distributed ID Sequencing Gaps (Snowflake vs. Counters):** To avoid the central bottleneck of atomic Redis counters for sequencing, we chose Snowflake IDs. While Snowflake IDs solve the clock-drift and scaling issues across 1024 servers without coordination, they only guarantee *loose chronological ordering* and can have gaps in sequence numbers. The client UI must be designed to sort by timestamp/ID without assuming contiguous sequence numbers.
+3. **Media Pipeline Complexity:** By enforcing a strict separation of concerns—offloading binary uploads directly to S3 via presigned URLs and caching via CDN—we protect our chat servers' WebSocket memory. However, this increases client-side complexity: the client must manage multipart upload states and coordinate metadata payload transmission over the WebSocket after a successful upload.
+4. **WebSocket Stateful Scaling Draining:** Since WebSockets maintain persistent TCP connections, we cannot instantly rebalance connections using standard round-robin load balancing. When autoscaling down, we must implement connection draining (slowly disconnecting users over 10-15 minutes so they reconnect to other servers).
+5. **Redis Pub/Sub Durability:** We route real-time messages via Redis Pub/Sub to bypass Kafka consumption latency. However, Redis Pub/Sub is 'fire-and-forget'—if Chat Server B crashes before delivering a message, it is lost in transit. We handle this by verifying deliveries via WebSocket ACKs and using the Cassandra database as the source of truth for offline synchronization."
+
+**Interviewer:** "That is a very comprehensive, realistic, and well-reasoned system design. You've clearly articulated both the benefits and trade-offs of your choices. Thank you!"
+
+## Common Pitfalls in Interviews
+
+1. **Jumping straight into drawing**: Drawing components before understanding requirements is the #1 reason candidates fail.
+2. **Talking in buzzwords**: Saying "we'll use Kafka and Kubernetes" without explaining *why* they are needed shows a lack of depth.
+3. **Silent designing**: Explain your thought process constantly. If you are silent for more than 30 seconds, the interviewer cannot evaluate you.
+4. **Defending designs blindly**: If the interviewer points out a bottleneck, accept the feedback and work with them to fix it.
+
+---
+
+## Summary Checklist
+
+Before your next system design interview, make sure you can answer these questions:
+* [ ] Can I define the difference between functional and non-functional requirements?
+* [ ] Do I have a standard set of clarifying questions for common system types?
+* [ ] Can I sketch a high-level database schema for relational and non-relational databases?
+* [ ] Do I understand how to estimate scale (QPS, storage, bandwidth)?
+* [ ] Can I explain the trade-offs of consistent hashing, replication, and sharding?
+`;
+
+export default systemDesignInterviewsRaw;

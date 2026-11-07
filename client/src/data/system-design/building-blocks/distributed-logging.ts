@@ -1,0 +1,190 @@
+export const distributedLoggingRaw = `---
+title: Distributed Logging
+description: Design a distributed logging system. Learn structured logging, log aggregation pipelines (ELK/EFK stack), log levels, correlation IDs, and how to handle terabytes of logs at scale.
+order: 13
+category: Building Blocks
+---
+
+# Distributed Logging
+
+In a monolith, debugging is straightforward — you open one log file and search for the error. In a microservices architecture with 50+ services running across hundreds of containers, a single user request might touch 10 different services. Finding the root cause of a failure requires **aggregating, correlating, and searching logs** from all those services in one place.
+
+A **distributed logging system** collects logs from every service, transports them to a central store, indexes them for fast search, and provides dashboards for analysis.
+
+---
+
+## 1. The Logging Pipeline
+
+Every distributed logging system follows the same fundamental pipeline:
+
+<Mermaid chart='flowchart LR[nl]
+    App1["Service A"] --> Agent1["Log Agent"][nl]
+    App2["Service B"] --> Agent2["Log Agent"][nl]
+    App3["Service C"] --> Agent3["Log Agent"][nl]
+    Agent1 --> Broker["Message Broker[br](Kafka)"][nl]
+    Agent2 --> Broker[nl]
+    Agent3 --> Broker[nl]
+    Broker --> Processor["Log Processor[br](Logstash / Fluentd)"][nl]
+    Processor --> Store["Log Store[br](Elasticsearch)"][nl]
+    Store --> Dashboard["Dashboard[br](Kibana / Grafana)"]' />
+
+| Stage | Component | Purpose |
+| :--- | :--- | :--- |
+| **1. Generation** | Application code | Services emit log entries (structured JSON or plain text). |
+| **2. Collection** | Log agent (Filebeat, Fluentd, Vector) | A lightweight agent on each host reads log files and forwards them. |
+| **3. Transport** | Message broker (Kafka) | Buffers logs to handle traffic spikes. Decouples producers from consumers. |
+| **4. Processing** | Log processor (Logstash, Fluentd) | Parses, transforms, enriches, and filters log entries. |
+| **5. Storage** | Search engine (Elasticsearch, Loki) | Indexes logs for fast full-text search and time-range queries. |
+| **6. Visualization** | Dashboard (Kibana, Grafana) | Query interface for searching, filtering, and building alert rules. |
+
+---
+
+## 2. Structured Logging
+
+The single most impactful improvement you can make to your logging is switching from **unstructured** to **structured** logs.
+
+### Unstructured (Bad)
+\`\`\`
+2024-01-15 14:30:22 ERROR Payment failed for user 123, order 456, amount $29.99, card declined
+\`\`\`
+
+This is human-readable but machine-unfriendly. Parsing the user ID, order ID, or amount requires fragile regex patterns.
+
+### Structured (Good)
+\`\`\`json
+{
+    "timestamp": "2024-01-15T14:30:22.456Z",
+    "level": "ERROR",
+    "service": "payment-service",
+    "message": "Payment failed",
+    "user_id": "123",
+    "order_id": "456",
+    "amount": 29.99,
+    "currency": "USD",
+    "error_code": "CARD_DECLINED",
+    "trace_id": "abc-123-def-456",
+    "span_id": "span-789"
+}
+\`\`\`
+
+With structured logs, you can query:
+*   \`service:payment-service AND level:ERROR\` — All payment errors.
+*   \`user_id:123\` — Everything that happened for user 123.
+*   \`trace_id:abc-123-def-456\` — The entire journey of a single request across all services.
+
+---
+
+## 3. Log Levels
+
+Log levels indicate the severity of an event. They allow you to filter noise and focus on what matters.
+
+| Level | When to Use | Example |
+| :--- | :--- | :--- |
+| **TRACE** | Extremely detailed debugging. Usually disabled in production. | Function entry/exit, variable values at each step. |
+| **DEBUG** | Detailed information useful during development. | "Cache miss for key user:123, fetching from database." |
+| **INFO** | Normal operational events. | "Order 456 created successfully." "Server started on port 8080." |
+| **WARN** | Something unexpected happened, but the system can continue. | "Retry 2/3 for database connection." "Disk usage at 85%." |
+| **ERROR** | An operation failed, but the system is still running. | "Payment failed for order 456: card declined." |
+| **FATAL** | The application cannot continue and is shutting down. | "Database connection pool exhausted. Shutting down." |
+
+### Production Configuration
+
+In production, set the log level to **INFO** or **WARN**. DEBUG and TRACE logs generate enormous volume and should only be enabled temporarily for specific services during active debugging.
+
+\`\`\`
+Development:  log level = DEBUG  (verbose, see everything)
+Staging:      log level = DEBUG  (mirror development for testing)
+Production:   log level = INFO   (normal operations + errors)
+\`\`\`
+
+---
+
+## 4. Distributed Tracing and Correlation IDs
+
+The most critical challenge in distributed logging is **correlating logs across services**. When a user's request flows through 10 services, how do you find all the log entries related to that single request?
+
+### Correlation IDs (Trace IDs)
+
+When a request enters the system, the API Gateway generates a unique **Trace ID** and attaches it as an HTTP header (e.g., \`X-Trace-ID: abc-123\`). Every downstream service reads this header, includes it in all its log entries, and forwards it to the next service.
+
+<Mermaid chart='sequenceDiagram[nl]
+    participant Gateway as API Gateway[nl]
+    participant Auth as Auth Service[nl]
+    participant Order as Order Service[nl]
+    participant Payment as Payment Service[nl]
+[nl]
+    Note over Gateway: Generate Trace ID: abc-123[nl]
+    Gateway->>Auth: X-Trace-ID: abc-123[nl]
+    Note over Auth: Log: trace_id=abc-123 "User authenticated"[nl]
+    Auth-->>Gateway: 200 OK[nl]
+    Gateway->>Order: X-Trace-ID: abc-123[nl]
+    Note over Order: Log: trace_id=abc-123 "Order created"[nl]
+    Order->>Payment: X-Trace-ID: abc-123[nl]
+    Note over Payment: Log: trace_id=abc-123 "Payment processed"' />
+
+Now, searching \`trace_id:abc-123\` in Kibana returns every log entry from every service that participated in that request — in chronological order.
+
+### OpenTelemetry
+
+**OpenTelemetry** is the industry standard for distributed tracing. It provides:
+*   **Trace ID**: Identifies the entire request journey across all services.
+*   **Span ID**: Identifies a single operation within a service (e.g., "database query", "HTTP call to payment service").
+*   **Parent Span ID**: Links child spans to parent spans, creating a tree of operations.
+
+---
+
+## 5. The ELK and EFK Stacks
+
+The two most popular logging stacks are:
+
+### ELK Stack (Elasticsearch + Logstash + Kibana)
+
+| Component | Role |
+| :--- | :--- |
+| **Elasticsearch** | Stores and indexes logs. Provides full-text search. |
+| **Logstash** | Ingests logs, parses/transforms them, and sends them to Elasticsearch. |
+| **Kibana** | Web dashboard for querying logs, building visualizations, and setting up alerts. |
+
+### EFK Stack (Elasticsearch + Fluentd + Kibana)
+
+Replaces Logstash with **Fluentd** (or **Fluent Bit**), which is lighter and more popular in Kubernetes environments.
+
+### Grafana Loki (Alternative)
+
+Loki is a cost-effective alternative to Elasticsearch designed by Grafana Labs. Unlike Elasticsearch, Loki **does not index the full text** of log lines. It only indexes labels (metadata like \`service\`, \`level\`, \`trace_id\`), storing the raw log text compressed on object storage (S3).
+
+| Feature | Elasticsearch | Loki |
+| :--- | :--- | :--- |
+| **Full-text indexing** | Yes (every word indexed) | No (labels only) |
+| **Storage cost** | High (inverted index overhead) | Low (compressed on S3) |
+| **Query speed** | Fast for any query | Fast for label queries, slower for grep-style |
+| **Best For** | Complex log analytics, security monitoring | Cost-sensitive environments, Kubernetes |
+
+---
+
+## 6. Log Retention and Cost Management
+
+At scale, logging generates **terabytes per day**. Storing everything forever is prohibitively expensive.
+
+### Retention Strategy
+
+| Log Type | Retention | Reason |
+| :--- | :--- | :--- |
+| **Error/Fatal logs** | 90-365 days | Needed for root cause analysis and post-mortems. |
+| **Info logs** | 30-90 days | Useful for recent debugging but rarely needed after a month. |
+| **Debug logs** | 7-14 days | Only useful for active incident investigation. |
+| **Access logs** | 30-90 days | Security auditing, traffic analysis. |
+| **Audit logs** | 1-7 years | Regulatory compliance (GDPR, SOX, HIPAA). |
+
+### Cost Optimization Techniques
+
+1.  **Sampling**: For high-volume endpoints (health checks, static assets), log only 1% of requests instead of 100%.
+2.  **Hot-warm-cold architecture**: Store recent logs on fast SSD nodes (hot), move older logs to cheaper HDD nodes (warm), and archive to S3 (cold).
+3.  **Log aggregation**: Instead of logging every individual request, aggregate metrics (e.g., "endpoint /api/users: 50,000 requests, avg latency 120ms, 5 errors") at the service level.
+4.  **Drop verbose fields**: Strip large request/response bodies from logs before indexing.
+
+> [!TIP]
+> In a system design interview, always mention the logging pipeline (collection, transport, processing, storage, visualization), structured logging with trace IDs, and the cost trade-off between full indexing (Elasticsearch) and label-only indexing (Loki).
+`;
+
+export default distributedLoggingRaw;

@@ -10,6 +10,7 @@ import {
   BookOpen,
   Braces,
   Check,
+  ChevronDown,
   ChevronRight,
   CircleDotDashed,
   Code2,
@@ -33,6 +34,13 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useReadingProgressMap } from "@/hooks/useReadingProgress";
 import { systemDesignDocs } from "@/lib/systemDesignDocs";
 import { ImageWithPlaceholder } from "@/components/ImageWithPlaceholder";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const subjects = [
   { code: "01", title: "System Design", blurb: "Make trade-offs visible before you make them.", icon: Network, color: "blue" },
@@ -78,33 +86,64 @@ export default function Home() {
             <a className="nav-link" href="#collaborate">Collaborate</a>
           </nav>
           <div className="flex items-center gap-3">
-            <button onClick={toggleTheme} className="theme-toggle hidden h-10 items-center gap-2 rounded-full border border-[#13221e]/15 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
-              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}<span>{theme === "dark" ? "Light" : "Dark"}</span>
+            <button onClick={toggleTheme} className="theme-toggle hidden h-10 w-10 items-center justify-center rounded-full border border-[#13221e]/15 dark:border-[#f4efe7]/20 text-[#13221e] dark:text-[#f4efe7] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
 
             {isAuthenticated ? (
-              <div className="hidden sm:flex items-center gap-3">
-                <div className="flex items-center gap-2 font-mono text-[11px] text-[#13221e]/80">
-                  {user?.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.name || "User"} className="h-7 w-7 rounded-full border border-[#13221e]/20 object-cover" />
-                  ) : (
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#13221e] font-mono text-[10px] font-bold text-[#f3f0e8]">
-                      {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+              <div className="hidden sm:flex items-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="group flex items-center gap-2 rounded-full border border-[#13221e]/15 dark:border-[#f4efe7]/20 bg-transparent p-1 pr-3 font-mono text-[11px] text-[#13221e]/85 dark:text-[#f4efe7]/90 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#13221e]/30 dark:hover:border-[#f4efe7]/40 hover:bg-[#13221e]/5 dark:hover:bg-[#f4efe7]/10 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#13221e]/20 dark:focus-visible:ring-[#f4efe7]/20"
+                      aria-label="Account menu"
+                    >
+                      {user?.avatarUrl ? (
+                        <img
+                          src={user.avatarUrl}
+                          alt={user.name || "User"}
+                          className="h-7 w-7 rounded-full border border-[#13221e]/20 dark:border-[#f4efe7]/20 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#13221e] dark:bg-[#f4efe7] font-mono text-[10px] font-bold text-[#f3f0e8] dark:text-[#0f1513]">
+                          {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+                        </div>
+                      )}
+                      <span className="max-w-[120px] truncate font-medium">
+                        {user?.name || user?.email}
+                      </span>
+                      <ChevronDown
+                        size={14}
+                        className="text-[#13221e]/60 dark:text-[#f4efe7]/80 transition-transform duration-200 group-data-[state=open]:rotate-180"
+                      />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-56 mt-2 rounded-xl border border-[#13221e]/15 bg-[#fbfaf6] p-1.5 shadow-xl backdrop-blur dark:border-[#f4efe7]/15 dark:bg-[#1a2520]"
+                  >
+                    <div className="px-3 py-2.5">
+                      <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-[#13221e]/50 dark:text-[#f4efe7]/50">
+                        Signed in as
+                      </p>
+                      <p className="truncate font-sans text-sm font-semibold text-[#13221e] dark:text-[#f4efe7]">
+                        {user?.name || "Member"}
+                      </p>
+                      <p className="truncate font-mono text-[11px] text-[#13221e]/60 dark:text-[#f4efe7]/60">
+                        {user?.email}
+                      </p>
                     </div>
-                  )}
-                  <span className="max-w-[110px] truncate font-medium">{user?.name || user?.email}</span>
-                </div>
-                <button
-                  onClick={() => logout()}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#13221e]/20 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-[#13221e]/80 transition-all hover:bg-[#13221e]/5 active:scale-[0.97]"
-                  title="Log out"
-                >
-                  <LogOut size={13} />
-                  <span>Log out</span>
-                </button>
-                <a className="hidden items-center gap-2 rounded-full bg-[#13221e] px-4 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-[#f3f0e8] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] md:flex" href="/docs">
-                  Library <ArrowRight size={14} />
-                </a>
+                    <DropdownMenuSeparator className="my-1 bg-[#13221e]/10 dark:bg-[#f4efe7]/10" />
+                    <DropdownMenuItem
+                      onClick={() => logout()}
+                      className="cursor-pointer gap-2 rounded-lg px-3 py-2 font-mono text-[11px] font-medium text-red-600 transition-colors hover:bg-red-500/10 focus:bg-red-500/10 focus:text-red-600 dark:text-red-400 dark:hover:bg-red-500/15"
+                    >
+                      <LogOut size={14} />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             ) : (
               <div className="hidden sm:flex items-center gap-3">
@@ -370,7 +409,7 @@ export default function Home() {
       <footer className="bg-[#13221e] text-[#f7f5ef]">
         <div className="site-shell border-t border-[#f7f5ef]/15 py-8">
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
-            <a className="flex items-center gap-3" href="#top"><img src="explainbytes-mark.png" className="h-9 w-9" alt="" /><span className="font-display text-2xl tracking-[-0.05em]">Explain Bytes</span></a>
+            <a className="flex items-center gap-3" href="#top"><img src="explainbytes-mark.webp" className="h-9 w-9" alt="" /><span className="font-display text-2xl tracking-[-0.05em]">Explain Bytes</span></a>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#f7f5ef]/58"><a href="#library" className="hover:text-[#e66b5b]">Docs</a><a href="/flashcards" className="hover:text-[#e66b5b]">Practice</a><a href="/terms" className="hover:text-[#e66b5b]">Terms</a><a href="https://github.com/Eyepatch5263" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-[#e66b5b]"><Github size={14} /> GitHub</a></div>
           </div>
           <div className="mt-10 flex flex-col justify-between gap-3 border-t border-[#f7f5ef]/10 pt-4 font-mono text-[9px] uppercase tracking-[0.12em] text-[#f7f5ef]/40 sm:flex-row"><span>© 2026 Explain Bytes</span><span>Trace the idea. Keep the system.</span></div>

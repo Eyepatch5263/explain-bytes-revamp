@@ -1,0 +1,134 @@
+export const cdnRaw = `---
+title: CDN (Content Delivery Network)
+description: Deep dive into CDN architecture. Learn about GeoDNS vs Anycast routing, Push vs Pull caching topologies, Cache-Control headers, invalidation, and Edge Compute.
+order: 5
+category: Building Blocks
+---
+
+# Content Delivery Networks (CDNs)
+
+A **Content Delivery Network (CDN)** is a geographically distributed system of edge servers (Points of Presence, or PoPs) that caches and delivers web content to users. By placing edge servers close to users, CDNs minimize physical network latency (Round Trip Time), offload massive amounts of bandwidth from origin servers, and protect application infrastructure from DDoS attacks.
+
+---
+
+## 1. GeoDNS vs. Anycast CDN Routing
+
+To deliver content with low latency, a CDN must route users' requests to the nearest edge server. This is accomplished using two routing technologies:
+
+### 1. GeoDNS Routing
+When a client resolves a domain name, the DNS server inspects the client's resolver IP address, determines its geographic location, and returns the IP address of the closest CDN data center.
+
+<Mermaid chart='flowchart TD[nl]
+    ClientUS["User (New York)"] -->|Resolve cdn.com| DNS["GeoDNS Server"][nl]
+    DNS -->|US IP -> Return NY Edge IP| ClientUS[nl]
+    ClientEU["User (Berlin)"] -->|Resolve cdn.com| DNS[nl]
+    DNS -->|EU IP -> Return Frankfurt Edge IP| ClientEU' />
+
+*   *Downside*: If a user utilizes a public DNS resolver (like Google DNS) in a different country, the GeoDNS resolver might route the user to an incorrect location.
+
+### 2. Anycast Routing (Recommended)
+Multiple CDN edge locations advertise the exact same IP address using BGP (Border Gateway Protocol). Routers across the internet naturally route packets to the topologically closest edge server.
+
+<Mermaid chart='flowchart LR[nl]
+    ClientUS["User (New York)"] -->|Send packet to 1.1.1.1| EdgeUS["Edge Server (New York)"][nl]
+    ClientEU["User (Berlin)"] -->|Send packet to 1.1.1.1| EdgeEU["Edge Server (Frankfurt)"]' />
+
+*   *Upside*: Zero DNS latency penalty. If an edge location experiences a outage, BGP automatically re-routes traffic to the next closest healthy location, providing seamless failover.
+
+---
+
+## 2. Push vs. Pull Caching Topologies
+
+CDNs fetch and store content from origin servers using one of two primary caching strategies:
+
+### 1. Pull CDN (Origin-Pull)
+The CDN edge server acts as a lazy cache. When a request arrives, the edge checks if the asset is in its cache. If it is (Cache Hit), it serves it immediately. If not (Cache Miss), it fetches the asset from the origin server, caches it for future requests, and returns it to the user.
+
+<Mermaid chart='sequenceDiagram[nl]
+    autonumber[nl]
+    actor Client as User Browser[nl]
+    participant Edge as CDN Edge Server (Cache)[nl]
+    participant Origin as Origin App Server[nl]
+[nl]
+    Client->>Edge: Request /static/logo.png[nl]
+    Note over Edge: Cache Check (Miss)[nl]
+    Edge->>Origin: Fetch /static/logo.png[nl]
+    Origin-->>Edge: Return logo.png + Cache-Control: max-age=86400[nl]
+    Note over Edge: Save logo.png to Cache[nl]
+    Edge-->>Client: Return logo.png[nl]
+[nl]
+    Note over Client, Edge: Subsequent Request (Hit)[nl]
+    Client->>Edge: Request /static/logo.png[nl]
+    Edge-->>Client: Return logo.png (Cached)' />
+
+*   **Best for**: Highly dynamic traffic, websites, API responses, and standard static web assets (images, CSS, JS).
+*   **Pros**: Low storage overhead (only caches requested files).
+
+### 2. Push CDN
+The application explicitly uploads (pushes) files to the CDN storage bucket before any user requests them. Edge servers retrieve content directly from the CDN bucket.
+
+<Mermaid chart='flowchart LR[nl]
+    Origin["Origin Build Server"] -->|1. Upload build assets| CDNBucket["CDN Storage Bucket"][nl]
+    CDNBucket -->|2. Sync globally| EdgeEU["Edge Frankfurt"][nl]
+    CDNBucket -->|2. Sync globally| EdgeUS["Edge New York"][nl]
+    User["User Browser"] -->|3. Fetch directly| EdgeEU' />
+
+*   **Best for**: Large software downloads, game patches, and video files where the first user's request cannot suffer a cache-miss latency penalty.
+*   **Pros**: 100% Cache Hit rate. Zero load on the primary application servers during traffic spikes.
+
+---
+
+## 3. Caching Semantics & Cache-Control Headers
+
+CDNs rely on standard HTTP response headers sent by the origin server to manage caching policies:
+
+*   \`Cache-Control: public, max-age=31536000\`: Allows any CDN and browser to cache the response for up to 1 year ($31,536,000$ seconds).
+*   \`Cache-Control: private, no-store\`: Prevents the CDN from caching the response. The request must go to the origin every time (e.g., user profiles, checkout pages).
+*   \`Cache-Control: s-maxage=86400\`: Overrides the standard \`max-age\` value exclusively for shared caches (CDNs), allowing a different cache lifetime for CDNs than for users' browsers.
+*   \`stale-while-revalidate=3600\`: Tells the CDN to serve stale (expired) content from the cache if requested, while asynchronously spawning a background request to fetch fresh data from the origin.
+
+---
+
+## 4. Cache Invalidation Strategies
+
+One of the greatest challenges in CDN management is ensuring that users receive fresh content when updates are deployed.
+
+1.  **Time-To-Live (TTL)**: The simplest approach. Allow files to naturally expire after a set time.
+    *   *Trade-off*: Long TTLs improve performance but delay update delivery.
+2.  **Versioned / Fingerprinted URLs (Recommended)**: Append a hash of the file's content to its filename (e.g., \`main.a8f2c9.js\`).
+    *   *How it works*: When you deploy a new version, the filename changes. The CDN views this as a completely new request and pulls the fresh file immediately. Old URLs can be cached indefinitely.
+3.  **Active Purging (Invalidation)**: Send an API request to the CDN provider to force-clear a specific URL path (e.g., \`/images/banner.png\`) or a wildcard path (e.g., \`/images/*\`).
+    *   *Trade-off*: Fast, but purging across thousands of global servers can take from seconds to minutes and can be rate-limited or expensive.
+
+---
+
+## 5. Modern CDN Superpower: Edge Compute
+
+Modern CDNs do not just serve static files; they run serverless code at the edge (e.g., Cloudflare Workers, AWS Lambda@Edge).
+
+<Mermaid chart="flowchart LR\\n
+    Client['Client Browser'] -->|Request| Edge['CDN Edge Server']\\n
+    subgraph EdgeCompute['Edge Compute Execution']\\n
+        Worker['Edge Worker Script'] -->|Inject headers / A-B Test / Redirect| Router['Router']\\n
+    end\\n
+    Edge --- EdgeCompute\\n
+    EdgeCompute -->|Response| Client" />
+
+### Key Edge Use Cases
+*   **A/B Testing**: Intercept client requests at the edge and route 50% of users to version A and 50% to version B without hitting the origin database.
+*   **Dynamic Image Optimization**: Read the client's \`Accept\` headers to detect if the browser supports next-gen image formats (WebP/AVIF), converting images on the fly at the edge.
+*   **Edge Authentication**: Validate JWT signatures at the edge, blocking unauthorized requests before they consume origin compute resources.
+*   **Geo-Customization**: Detect user country headers at the edge to serve localized pages or block restricted regions (Geofencing).
+
+---
+
+## 6. CDN Security & Resiliency
+
+Because CDNs stand between the internet and your servers, they provide a critical shield for your infrastructure:
+
+*   **DDoS Mitigation**: CDNs possess massive global bandwidth capacity (often hundreds of Terabits/sec). They absorb volumetric DDoS floods (like SYN flood or HTTP flood) across their global network, neutralizing the attack before it touches your network gateway.
+*   **Web Application Firewall (WAF)**: Filters malicious request payloads (e.g., SQL injections, Cross-Site Scripting (XSS)) at the edge.
+*   **Origin Shielding**: A strategy where a dedicated regional CDN cache stands between the edge servers and your origin. This prevents thousands of edge servers from concurrently pulling from your origin during a cache stampede.
+`;
+
+export default cdnRaw;
