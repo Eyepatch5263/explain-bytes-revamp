@@ -1,10 +1,10 @@
-import { ArrowRight, BookOpen, Code2, LogOut, Network, PanelLeftOpen, Server, Sparkles } from "lucide-react";
-import { useAuth } from "@/_core/hooks/useAuth";
+import { ArrowRight, BookOpen, Code2, Moon, Network, PanelLeftOpen, Server, Sparkles, Sun } from "lucide-react";
 import { useReadingProgressMap } from "@/hooks/useReadingProgress";
 import { getSystemDesignCategories, systemDesignDocs, systemDesignSourceMeta } from "@/lib/systemDesignDocs";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function FlashDocs() {
-  const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
   const categories = getSystemDesignCategories();
   const progressMap = useReadingProgressMap();
   const resumeDoc = systemDesignDocs.find((doc) => progressMap[doc.slug] && !progressMap[doc.slug].completed);
@@ -14,20 +14,10 @@ export default function FlashDocs() {
       <header className="flashdocs-library-header flex items-center justify-between">
         <a className="flashdocs-back" href="/">← Explain Bytes</a>
         <div className="flex items-center gap-4">
-          {user && (
-            <span className="hidden sm:inline font-mono text-[11px] text-[#13221e]/70">
-              {user.name || user.email}
-            </span>
-          )}
-          <button
-            onClick={() => logout()}
-            className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-[#e66b5b] hover:opacity-80 transition-opacity"
-            title="Log out"
-          >
-            <LogOut size={13} />
-            <span className="hidden sm:inline">Log out</span>
-          </button>
-          <a className="flashdocs-library-flashcards" href="/flashcards">Flash cards <ArrowRight size={14} /></a>
+         
+           <button onClick={toggleTheme} className="theme-toggle hidden h-10 w-10 items-center justify-center rounded-full border border-[#13221e]/15 dark:border-[#f4efe7]/20 text-[#13221e] dark:text-[#f4efe7] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
         </div>
       </header>
 

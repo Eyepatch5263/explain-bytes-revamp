@@ -10,10 +10,15 @@ describe("ProtectedRoute", () => {
     vi.spyOn(authHook, "useAuth").mockReturnValue({
       user: null,
       loading: true,
+      isLoading: true,
       error: null,
       isAuthenticated: false,
-      refresh: () => Promise.resolve({} as any),
+      login: () => Promise.resolve(),
+      signup: () => Promise.resolve(),
       logout: () => Promise.resolve(),
+      loginWithRedirect: () => Promise.resolve(),
+      getAccessTokenSilently: (() => Promise.resolve("")) as any,
+      getIdTokenClaims: () => Promise.resolve({} as any),
     });
 
     const markup = renderToStaticMarkup(
@@ -32,10 +37,15 @@ describe("ProtectedRoute", () => {
     vi.spyOn(authHook, "useAuth").mockReturnValue({
       user: null,
       loading: false,
+      isLoading: false,
       error: null,
       isAuthenticated: false,
-      refresh: () => Promise.resolve({} as any),
+      login: () => Promise.resolve(),
+      signup: () => Promise.resolve(),
       logout: () => Promise.resolve(),
+      loginWithRedirect: () => Promise.resolve(),
+      getAccessTokenSilently: (() => Promise.resolve("")) as any,
+      getIdTokenClaims: () => Promise.resolve({} as any),
     });
 
     const markup = renderToStaticMarkup(
@@ -60,10 +70,15 @@ describe("ProtectedRoute", () => {
         role: "user",
       },
       loading: false,
+      isLoading: false,
       error: null,
       isAuthenticated: true,
-      refresh: () => Promise.resolve({} as any),
+      login: () => Promise.resolve(),
+      signup: () => Promise.resolve(),
       logout: () => Promise.resolve(),
+      loginWithRedirect: () => Promise.resolve(),
+      getAccessTokenSilently: (() => Promise.resolve("")) as any,
+      getIdTokenClaims: () => Promise.resolve({} as any),
     });
 
     const markup = renderToStaticMarkup(
@@ -75,5 +90,6 @@ describe("ProtectedRoute", () => {
     );
 
     expect(markup).toContain("Private Secret Content");
+    expect(markup).not.toContain("Verifying authorization...");
   });
 });

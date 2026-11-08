@@ -12,8 +12,8 @@ const Home = lazy(() => import("./pages/Home"));
 const Flashcards = lazy(() => import("./pages/Flashcards"));
 const FlashDocs = lazy(() => import("./pages/FlashDocs"));
 const SystemDesignReader = lazy(() => import("./pages/SystemDesignReader"));
-const Login = lazy(() => import("./pages/Login"));
 const EngineeringTerms = lazy(() => import("./pages/EngineeringTerms"));
+const Login = lazy(() => import("./pages/Login"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function Router() {
@@ -21,24 +21,32 @@ function Router() {
     const [location] = useLocation();
     const deckSlug = location.split("/")[2];
     return (
+      <ProtectedRoute>
         <Suspense fallback={<LoadingSkeleton label="Opening study room" />}>
           <Flashcards deckSlug={deckSlug} />
         </Suspense>
+      </ProtectedRoute>
     );
   };
+
   const SystemDesignRoute = () => {
     const [location] = useLocation();
     const parts = location.split("/").filter(Boolean);
     return (
+      <ProtectedRoute>
         <Suspense fallback={<LoadingSkeleton kind="reader" label="Preparing Flash Docs" />}>
           <SystemDesignReader slug={parts[2]} view={parts[3]} />
         </Suspense>
+      </ProtectedRoute>
     );
   };
+
   const ProtectedFlashDocs = () => (
+    <ProtectedRoute>
       <Suspense fallback={<LoadingSkeleton label="Opening Explain Bytes library" />}>
         <FlashDocs />
       </Suspense>
+    </ProtectedRoute>
   );
 
   return (
@@ -70,7 +78,9 @@ function App() {
       <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
-          <Suspense fallback={<LoadingSkeleton label="Opening Explain Bytes" />}><Router /></Suspense>
+          <Suspense fallback={<LoadingSkeleton label="Opening Explain Bytes" />}>
+            <Router />
+          </Suspense>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

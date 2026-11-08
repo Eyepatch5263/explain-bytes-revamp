@@ -2,8 +2,10 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
-import { toNodeHandler } from "better-auth/node";
-import { auth } from "../lib/auth";
+import { createExpressMiddleware } from "@trpc/server/adapters/express";
+import { appRouter } from "../routers";
+import { createContext } from "./context";
+import { upsertAuth0User } from "../db";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -33,8 +35,6 @@ async function startServer() {
   app.set("trust proxy", true);
 
   // Normalize multi-hop proxy headers (e.g. from ngrok, cloudflare, load balancers)
-  // Headers like x-forwarded-proto or x-forwarded-host can have comma-separated values (e.g. "https, https").
-  // This causes URL parsing failures in Node.js / undici / better-call.
   app.use((req, _res, next) => {
     const rawProto = req.headers["x-forwarded-proto"];
     if (typeof rawProto === "string") {
@@ -65,25 +65,40 @@ async function startServer() {
     next();
   });
 
-  // Better Auth endpoint
-  const authHandler = toNodeHandler(auth);
-  app.all("/api/auth/*", (req, res) => {
-    const proto = req.headers["x-forwarded-proto"];
-    if (typeof proto === "string" && proto.includes(",")) {
-      req.headers["x-forwarded-proto"] = proto.split(",")[0].trim();
-    }
-    const host = req.headers["x-forwarded-host"];
-    if (typeof host === "string" && host.includes(",")) {
-      req.headers["x-forwarded-host"] = host.split(",")[0].trim();
-    }
-    return authHandler(req, res);
-  });
-
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+  // Auth0 credential sync endpoint (saves user profile & credentials to PostgreSQL)
+  app.post("/api/auth/sync-user", async (req, res) => {
+    try {
+      const { email, name, avatarUrl, oauthProvider, emailVerified } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      const user = await upsertAuth0User({
+        email,
+        name,
+        avatarUrl,
+        oauthProvider,
+        emailVerified,
+      });
+      return res.json({ success: true, user });
+    } catch (err: any) {
+      console.error("[Auth0 Sync] Error:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // tRPC API
-  
+  app.use(
+    "/api/trpc",
+    createExpressMiddleware({
+      router: appRouter,
+      createContext,
+    })
+  );
+
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
@@ -99,8 +114,11 @@ async function startServer() {
   }
 
   server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+    console.log(`Server running at http://localhost:${port}/`);
   });
 }
 
-startServer().catch(console.error);
+startServer().catch(err => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});

@@ -19,7 +19,6 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { AuthCard } from "./AuthCard";
 import { useIsMobile } from "@/hooks/useMobile";
 import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
@@ -46,7 +45,7 @@ export default function DashboardLayout({
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
-  const { loading, user } = useAuth();
+  const { loading, user, login } = useAuth();
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -59,7 +58,15 @@ export default function DashboardLayout({
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen p-4 bg-background">
-        <AuthCard />
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+          <h1 className="text-xl font-semibold">Sign in to continue</h1>
+          <p className="text-sm text-muted-foreground">
+            Please sign in to access your dashboard.
+          </p>
+          <Button onClick={() => login()} className="w-full">
+            Sign In with Auth0
+          </Button>
+        </div>
       </div>
     );
   }
@@ -204,7 +211,7 @@ function DashboardLayoutContent({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem
-                  onClick={logout}
+                  onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
                   className="cursor-pointer text-destructive focus:text-destructive"
                 >
                   <LogOut className="mr-2 h-4 w-4" />

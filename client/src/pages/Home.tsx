@@ -13,8 +13,6 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDotDashed,
-  Code2,
-  FileText,
   Github,
   Layers3,
   LogIn,
@@ -29,7 +27,6 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useReadingProgressMap } from "@/hooks/useReadingProgress";
 import { systemDesignDocs } from "@/lib/systemDesignDocs";
@@ -41,6 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 const subjects = [
   { code: "01", title: "System Design", blurb: "Make trade-offs visible before you make them.", icon: Network, color: "blue" },
@@ -52,8 +50,8 @@ const subjects = [
 const terms = ["Idempotency", "Quorum", "B+ Tree", "Deadlock", "Rate limiting", "CAP theorem"];
 
 export default function Home() {
+  const { user, isAuthenticated, login, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { user, isAuthenticated, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSubject, setActiveSubject] = useState("System Design");
   const [email, setEmail] = useState("");
@@ -86,10 +84,6 @@ export default function Home() {
             <a className="nav-link" href="#collaborate">Collaborate</a>
           </nav>
           <div className="flex items-center gap-3">
-            <button onClick={toggleTheme} className="theme-toggle hidden h-10 w-10 items-center justify-center rounded-full border border-[#13221e]/15 dark:border-[#f4efe7]/20 text-[#13221e] dark:text-[#f4efe7] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-
             {isAuthenticated ? (
               <div className="hidden sm:flex items-center">
                 <DropdownMenu>
@@ -110,9 +104,7 @@ export default function Home() {
                           {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
                         </div>
                       )}
-                      <span className="max-w-[120px] truncate font-medium">
-                        {user?.name || user?.email}
-                      </span>
+
                       <ChevronDown
                         size={14}
                         className="text-[#13221e]/60 dark:text-[#f4efe7]/80 transition-transform duration-200 group-data-[state=open]:rotate-180"
@@ -147,18 +139,27 @@ export default function Home() {
               </div>
             ) : (
               <div className="hidden sm:flex items-center gap-3">
-                <a
-                  href="/login"
+                <button
+                  type="button"
+                  onClick={() => login()}
                   className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#13221e]/20 px-4 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-[#13221e] transition-all hover:bg-[#13221e]/5 active:scale-[0.97]"
                 >
                   <LogIn size={14} />
                   <span>Sign in</span>
-                </a>
-                <a className="hidden items-center gap-2 rounded-full bg-[#13221e] px-5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-[#f3f0e8] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] md:flex" href="/login">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => login()}
+                  className="hidden items-center gap-2 rounded-full bg-[#13221e] px-5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-[#f3f0e8] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] md:flex"
+                >
                   Get started <ArrowRight size={14} />
-                </a>
+                </button>
               </div>
             )}
+
+            <button onClick={toggleTheme} className="theme-toggle hidden h-10 w-10 items-center justify-center rounded-full border border-[#13221e]/15 dark:border-[#f4efe7]/20 text-[#13221e] dark:text-[#f4efe7] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97] sm:flex" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
             <button className="grid h-10 w-10 place-items-center rounded-full border border-[#13221e]/15 lg:hidden" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle navigation" aria-expanded={mobileOpen}>
               {mobileOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -190,14 +191,17 @@ export default function Home() {
                   </button>
                 </div>
               ) : (
-                <a
-                  href="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-between border-b border-[#13221e]/10 py-4 font-bold text-[#e66b5b]"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    login();
+                  }}
+                  className="flex items-center justify-between border-b border-[#13221e]/10 py-4 font-bold text-[#e66b5b] text-left w-full"
                 >
                   <span className="flex items-center gap-2"><LogIn size={16} /> Sign in / Register</span>
                   <ArrowRight size={16} />
-                </a>
+                </button>
               )}
               {["Library", "Flash cards", "Terms", "Collaborate"].map((item, index) => (
                 <a key={item} href={["/docs", "/flashcards", "/terms", "#collaborate"][index]} onClick={() => setMobileOpen(false)} className="flex items-center justify-between border-b border-[#13221e]/10 py-4">
@@ -217,14 +221,11 @@ export default function Home() {
           <ImageWithPlaceholder src="explainbytes-hero-system-coral.png" previewSrc="/hero.webp" alt="Abstract connected systems map on drafting paper" containerClassName="dark-hero-image-shell absolute inset-0 -z-20" className="dark-hero-image object-cover object-[61%_50%] opacity-95" />
           <div className="dark-hero-overlay absolute inset-0 -z-10 bg-gradient-to-r from-[#f3f0e8] via-[#f3f0e8]/90 to-[#f3f0e8]/5" />
           <div className="site-shell relative min-h-[690px] py-7 lg:min-h-[730px] lg:py-9">
-            <div className="editorial-rail absolute bottom-0 left-0 top-0 hidden w-12 border-r border-[#13221e]/10 xl:block" aria-hidden="true">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.24em] text-[#13221e]/45">Field notes / 001</span>
-            </div>
+
             <div className="grid h-full min-h-[640px] items-end gap-8 xl:pl-16">
               <div className="max-w-3xl pb-14 pt-20 sm:pt-24">
                 <div className="mb-8 flex items-center gap-3 font-mono text-[11px] font-medium uppercase tracking-[0.15em] text-[#13221e]/65">
-                  <span className="inline-block h-2 w-2 rounded-full bg-[#e66b5b] ring-4 ring-[#e66b5b]/30" />
-                  The developer’s field guide
+
                 </div>
                 <h1 className="max-w-[760px] font-display text-[clamp(3.9rem,8.7vw,8.5rem)] leading-[0.83] tracking-[-0.075em] text-[#13221e]">
                   Engineering,<br />
@@ -241,11 +242,6 @@ export default function Home() {
                     Try a flash card <ChevronRight size={15} />
                   </a>
                 </div>
-              </div>
-              <div className="mb-8 flex max-w-2xl flex-wrap gap-x-7 gap-y-3 border-t border-[#13221e]/15 pt-5 font-mono text-[10px] uppercase tracking-[0.12em] text-[#13221e]/65">
-                <span><b className="mr-2 text-[#13221e]">2,000+</b> connected terms</span>
-                <span><b className="mr-2 text-[#13221e]">07</b> core disciplines</span>
-                <span><b className="mr-2 text-[#13221e]">01</b> place to make it stick</span>
               </div>
             </div>
           </div>

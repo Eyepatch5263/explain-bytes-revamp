@@ -1,57 +1,121 @@
-import { authClient, signOut, useSession } from "@/lib/auth-client";
+import { useAuth0, type LogoutOptions, type RedirectLoginOptions } from "@auth0/auth0-react";
 import { useCallback, useEffect, useMemo } from "react";
 
-type UseAuthOptions = {
-  redirectOnUnauthenticated?: boolean;
-  redirectPath?: string;
+export type AuthUser = {
+  id?: string;
+  sub?: string;
+  name?: string;
+  email?: string;
+  picture?: string;
+  avatarUrl?: string | null;
+  emailVerified?: boolean;
+  role?: string;
+  [key: string]: any;
 };
 
-export function useAuth(options?: UseAuthOptions) {
-  const { redirectOnUnauthenticated = false, redirectPath } = options ?? {};
-  const { data: sessionData, isPending, error, refetch } = useSession();
+export function useAuth() {
+  const {
+    user: auth0User,
+    isAuthenticated,
+    isLoading,
+    error,
+    loginWithRedirect,
+    logout: auth0Logout,
+    getAccessTokenSilently,
+    getIdTokenClaims,
+  } = useAuth0();
 
-  const user = sessionData?.user ?? null;
-
-  const logout = useCallback(async () => {
-    try {
-      await signOut();
-    } catch (err) {
-      console.error("Sign out error:", err);
-    }
-  }, []);
-
-  const state = useMemo(() => {
+  const user: AuthUser | null = useMemo(() => {
+    if (!auth0User) return null;
     return {
-      user: user
-        ? {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            avatarUrl: user.image ?? null,
-            role: (user as any).role ?? "user",
-          }
-        : null,
-      loading: isPending,
-      error,
-      isAuthenticated: Boolean(user),
+      ...auth0User,
+      id: auth0User.sub,
+      avatarUrl: auth0User.picture ?? null,
+      emailVerified: auth0User.email_verified ?? false,
+      role: (auth0User as any)["https://explainbytes.tech/role"] ?? "user",
     };
-  }, [user, isPending, error]);
+  }, [auth0User]);
 
+  // Synchronize authenticated Auth0 credentials to the PostgreSQL database at port 5434
   useEffect(() => {
-    if (!redirectOnUnauthenticated) return;
-    if (isPending) return;
-    if (user) return;
-    if (typeof window === "undefined") return;
-    if (redirectPath && window.location.pathname === redirectPath) return;
-
-    if (redirectPath) {
-      window.location.href = redirectPath;
+    if (isAuthenticated && auth0User?.email) {
+      const syncCredentials = async () => {
+        try {
+          await fetch("/api/auth/sync-user", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              email: auth0User.email,
+              name: auth0User.name ?? null,
+              avatarUrl: auth0User.picture ?? null,
+              oauthProvider: auth0User.sub?.split("|")[0] ?? "auth0",
+              emailVerified: auth0User.email_verified ?? false,
+            }),
+          });
+        } catch (syncError) {
+          console.warn("[Auth0] DB credential sync warning:", syncError);
+        }
+      };
+      syncCredentials();
     }
-  }, [redirectOnUnauthenticated, redirectPath, isPending, user]);
+  }, [isAuthenticated, auth0User]);
+
+  const login = useCallback(
+    (options?: RedirectLoginOptions) => {
+      return loginWithRedirect(options);
+    },
+    [loginWithRedirect]
+  );
+
+  const signup = useCallback(
+    (options?: RedirectLoginOptions) => {
+      return loginWithRedirect({
+        ...options,
+        authorizationParams: {
+          screen_hint: "signup",
+          ...options?.authorizationParams,
+        },
+      });
+    },
+    [loginWithRedirect]
+  );
+
+  const logout = useCallback(
+    (options?: LogoutOptions | React.SyntheticEvent) => {
+      // Discriminate between LogoutOptions and React SyntheticEvent when used in onClick={logout}
+      const isEvent =
+        options &&
+        typeof options === "object" &&
+        ("nativeEvent" in options || "preventDefault" in options);
+
+      const resolvedOptions: LogoutOptions =
+        isEvent || !options
+          ? { logoutParams: { returnTo: window.location.origin } }
+          : {
+              logoutParams: { returnTo: window.location.origin },
+              ...options,
+            };
+
+      return auth0Logout(resolvedOptions);
+    },
+    [auth0Logout]
+  );
 
   return {
-    ...state,
-    refresh: () => refetch(),
+    user,
+    isAuthenticated,
+    loading: isLoading,
+    isLoading,
+    error: (error ?? null) as Error | null,
+    login,
+    signup,
     logout,
+    loginWithRedirect,
+    getAccessTokenSilently,
+    getIdTokenClaims,
   };
 }
+
+export default useAuth;

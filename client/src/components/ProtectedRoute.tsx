@@ -9,15 +9,16 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ component: Component, children }: ProtectedRouteProps) {
-  const { isAuthenticated, loading } = useAuth();
-  const [location, setLocation] = useLocation();
+  const { isAuthenticated, loading, login } = useAuth();
+  const [location] = useLocation();
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      const returnUrl = encodeURIComponent(location);
-      setLocation(`/login?returnUrl=${returnUrl}`);
+      login({
+        appState: { returnTo: location },
+      });
     }
-  }, [loading, isAuthenticated, location, setLocation]);
+  }, [loading, isAuthenticated, location, login]);
 
   if (loading) {
     return <LoadingSkeleton label="Verifying authorization..." />;
