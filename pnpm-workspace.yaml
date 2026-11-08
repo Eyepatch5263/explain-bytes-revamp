@@ -1,4 +1,4 @@
 allowBuilds:
   '@tailwindcss/oxide': false
-  browser-tabs-lock: set this to true or false
+  browser-tabs-lock: false
   esbuild: false

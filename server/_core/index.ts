@@ -1,11 +1,14 @@
 import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
+import crossws from "crossws/adapters/node";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { upsertAuth0User } from "../db";
+import { authenticateAuth0IdToken, AuthenticationError } from "../collaborative/auth";
+import { createCollaborationServer } from "../collaborative/hocuspocus";
+import { createCollaborativeHttpRouter } from "../collaborative/http";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -30,6 +33,57 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  const collaboration = createCollaborationServer();
+  const websocketAdapter = crossws({
+    hooks: {
+      open(peer) {
+        const connection = collaboration.handleConnection(
+          peer.websocket as any,
+          peer.request as unknown as Request,
+        );
+        (peer as any)._hocuspocus = connection;
+        (peer.websocket as any).on?.("pong", () => connection.touch());
+      },
+      message(peer, message) {
+        (peer as any)._hocuspocus?.handleMessage(message.uint8Array());
+      },
+      close(peer, event) {
+        (peer as any)._hocuspocus?.handleClose({ code: event.code, reason: event.reason });
+      },
+      error(peer, error) {
+        console.error("[Collaborative room] WebSocket error for peer", peer.id, error);
+      },
+    },
+  });
+
+  server.on("upgrade", (request, socket, head) => {
+    const pathname = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`).pathname;
+    if (pathname !== "/collab") {
+      socket.destroy();
+      return;
+    }
+    const origin = request.headers.origin;
+    const allowedOrigins = (process.env.COLLABORATION_ALLOWED_ORIGINS ?? "")
+      .split(",").map((value) => value.trim()).filter(Boolean);
+    if (origin) {
+      try {
+        const originUrl = new URL(origin);
+        const forwardedHost = request.headers["x-forwarded-host"];
+        const requestHost = (typeof forwardedHost === "string" ? forwardedHost.split(",")[0].trim() : request.headers.host)?.toLowerCase();
+        const sameHost = originUrl.host.toLowerCase() === requestHost;
+        if (!sameHost && !allowedOrigins.includes(origin)) {
+          socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+          socket.destroy();
+          return;
+        }
+      } catch {
+        socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+    }
+    websocketAdapter.handleUpgrade(request, socket, head);
+  });
 
   // Enable trusting proxy headers (for ngrok, reverse proxies, etc.)
   app.set("trust proxy", true);
@@ -69,26 +123,21 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  // Auth0 credential sync endpoint (saves user profile & credentials to PostgreSQL)
+  // Auth0 identity sync endpoint. Identity data is taken only from the verified token.
   app.post("/api/auth/sync-user", async (req, res) => {
     try {
-      const { email, name, avatarUrl, oauthProvider, emailVerified } = req.body;
-      if (!email) {
-        return res.status(400).json({ error: "Email is required" });
-      }
-      const user = await upsertAuth0User({
-        email,
-        name,
-        avatarUrl,
-        oauthProvider,
-        emailVerified,
-      });
-      return res.json({ success: true, user });
-    } catch (err: any) {
-      console.error("[Auth0 Sync] Error:", err);
-      return res.status(500).json({ error: err.message });
+      const match = /^Bearer\s+(.+)$/i.exec(req.header("authorization") ?? "");
+      if (!match) return res.status(401).json({ error: "Sign in is required." });
+      const user = await authenticateAuth0IdToken(match[1]);
+      return res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl } });
+    } catch (error) {
+      const status = error instanceof AuthenticationError ? error.status : 401;
+      const message = error instanceof AuthenticationError ? error.message : "The sign-in token could not be verified.";
+      return res.status(status).json({ error: message });
     }
   });
+
+  app.use("/api/collaborative", createCollaborativeHttpRouter(collaboration));
 
   // tRPC API
   app.use(

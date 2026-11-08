@@ -10,6 +10,8 @@
     { "path": "/docs/system-design/:slug", "title": "System Design Chapter" },
     { "path": "/docs/system-design/:slug/:view", "title": "System Design Reader" },
     { "path": "/flashcards", "title": "Flash Cards" },
-    { "path": "/flashcards/:deck", "title": "Flash Card Deck" }
+    { "path": "/flashcards/:deck", "title": "Flash Card Deck" },
+    { "path": "/collaborate", "title": "Collaborative Documents" },
+    { "path": "/collaborate/:documentId", "title": "Collaborative Room" }
   ]
 }

@@ -45,14 +45,23 @@ export async function getUserByEmail(email: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getUserByAuthSubject(authSubject: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(schema.users).where(eq(schema.users.authSubject, authSubject)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
 export async function upsertAuth0User({
   email,
+  authSubject,
   name,
   avatarUrl,
   oauthProvider = "auth0",
   emailVerified = false,
 }: {
   email: string;
+  authSubject?: string | null;
   name?: string | null;
   avatarUrl?: string | null;
   oauthProvider?: string | null;
@@ -64,12 +73,16 @@ export async function upsertAuth0User({
     return undefined;
   }
 
-  const existing = await getUserByEmail(email);
+  const existing = (authSubject ? await getUserByAuthSubject(authSubject) : undefined) ?? await getUserByEmail(email);
 
   if (existing) {
+    if (existing.authSubject && authSubject && existing.authSubject !== authSubject) {
+      throw new Error("This email address is already linked to another identity.");
+    }
     const [updated] = await db
       .update(schema.users)
       .set({
+        authSubject: authSubject ?? existing.authSubject,
         name: name ?? existing.name,
         avatarUrl: avatarUrl ?? existing.avatarUrl,
         oauthProvider: oauthProvider ?? existing.oauthProvider ?? "auth0",
@@ -86,6 +99,7 @@ export async function upsertAuth0User({
     .insert(schema.users)
     .values({
       email,
+      authSubject: authSubject ?? null,
       name: name ?? null,
       avatarUrl: avatarUrl ?? null,
       oauthProvider: oauthProvider ?? "auth0",

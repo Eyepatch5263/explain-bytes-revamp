@@ -13,6 +13,7 @@ const Flashcards = lazy(() => import("./pages/Flashcards"));
 const FlashDocs = lazy(() => import("./pages/FlashDocs"));
 const SystemDesignReader = lazy(() => import("./pages/SystemDesignReader"));
 const EngineeringTerms = lazy(() => import("./pages/EngineeringTerms"));
+const CollaborativeDocuments = lazy(() => import("./pages/CollaborativeDocuments"));
 const Login = lazy(() => import("./pages/Login"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -49,6 +50,18 @@ function Router() {
     </ProtectedRoute>
   );
 
+  const CollaborativeRoute = () => {
+    const [location] = useLocation();
+    const documentId = location.split("?")[0].split("/").filter(Boolean)[1];
+    return (
+      <ProtectedRoute>
+        <Suspense fallback={<LoadingSkeleton label="Opening the collaborative study room" />}>
+          <CollaborativeDocuments documentId={documentId} />
+        </Suspense>
+      </ProtectedRoute>
+    );
+  };
+
   return (
     <Switch>
       {/* Public routes */}
@@ -60,6 +73,8 @@ function Router() {
 
       {/* Protected routes */}
       <Route path="/docs" component={ProtectedFlashDocs} />
+      <Route path="/collaborate" component={CollaborativeRoute} />
+      <Route path="/collaborate/:documentId" component={CollaborativeRoute} />
       <Route path="/docs/system-design" component={SystemDesignRoute} />
       <Route path="/docs/system-design/:slug" component={SystemDesignRoute} />
       <Route path="/docs/system-design/:slug/:view" component={SystemDesignRoute} />

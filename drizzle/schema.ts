@@ -1,4 +1,6 @@
-import { boolean, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, customType, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+
+const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
 
 /**
  * Users table matching existing PostgreSQL schema in public.users
@@ -6,6 +8,7 @@ import { boolean, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").notNull().unique(),
+  authSubject: text("auth_subject"),
   passwordHash: text("password_hash"),
   name: text("name"),
   avatarUrl: text("avatar_url"),
@@ -17,7 +20,9 @@ export const users = pgTable("users", {
   verificationToken: text("verification_token"),
   verificationTokenExpires: timestamp("verification_token_expires", { withTimezone: true }),
   role: text("role").default("user"),
-});
+}, (table) => ({
+  authSubjectUnique: uniqueIndex("users_auth_subject_unique").on(table.authSubject),
+}));
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
@@ -38,10 +43,17 @@ export const documents = pgTable("documents", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   topic: text("topic").default("system-design"),
   category: text("category").default("introduction"),
+  format: text("format").notNull().default("mdx"),
+  ydocState: bytea("ydoc_state"),
+  forkedFromDocumentId: text("forked_from_document_id"),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
   reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-  title: varchar("title", { length: 50 }).default("Introduction To System Design"),
-});
+  title: text("title").default("Introduction To System Design"),
+}, (table) => ({
+  ownerUpdated: index("documents_owner_updated_idx").on(table.ownerId, table.updatedAt),
+  forkedFrom: index("documents_forked_from_idx").on(table.forkedFromDocumentId),
+}));
 
 export type Document = typeof documents.$inferSelect;
 export type InsertDocument = typeof documents.$inferInsert;

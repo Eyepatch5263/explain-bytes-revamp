@@ -36,23 +36,20 @@ export function useAuth() {
     };
   }, [auth0User]);
 
-  // Synchronize authenticated Auth0 credentials to the PostgreSQL database at port 5434
+  // Synchronize only a cryptographically verifiable Auth0 identity with the API.
   useEffect(() => {
     if (isAuthenticated && auth0User?.email) {
       const syncCredentials = async () => {
         try {
+          const claims = await getIdTokenClaims();
+          if (!claims?.__raw) return;
           await fetch("/api/auth/sync-user", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${claims.__raw}`,
             },
-            body: JSON.stringify({
-              email: auth0User.email,
-              name: auth0User.name ?? null,
-              avatarUrl: auth0User.picture ?? null,
-              oauthProvider: auth0User.sub?.split("|")[0] ?? "auth0",
-              emailVerified: auth0User.email_verified ?? false,
-            }),
+            body: JSON.stringify({}),
           });
         } catch (syncError) {
           console.warn("[Auth0] DB credential sync warning:", syncError);
@@ -60,7 +57,7 @@ export function useAuth() {
       };
       syncCredentials();
     }
-  }, [isAuthenticated, auth0User]);
+  }, [getIdTokenClaims, isAuthenticated, auth0User]);
 
   const login = useCallback(
     (options?: RedirectLoginOptions) => {

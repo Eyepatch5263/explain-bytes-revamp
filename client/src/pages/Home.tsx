@@ -372,7 +372,7 @@ export default function Home() {
               <h2 className="section-title mt-5">Write it out.<br /><em>Make it clearer.</em></h2>
               <p className="mt-7 max-w-md font-body text-[17px] leading-7 text-[#13221e]/68">Shape explanations alongside your peers, experiment in a fork, and bring the sharpest version back to the shared library.</p>
               <div className="mt-9 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#13221e]/65"><span className="grid h-8 w-8 place-items-center rounded-full bg-[#4072f6] text-[#f7f5ef]"><UsersRound size={15} /></span> Built for thoughtful collaboration</div>
-              <a href="#collaborate" onClick={() => toast("Collaborative editor coming next in the revamp.")} className="mt-9 inline-flex items-center gap-3 border-b border-[#13221e] pb-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] hover:text-[#4072f6]">Explore the editor <ArrowRight size={15} /></a>
+              <a href="/collaborate" className="mt-9 inline-flex items-center gap-3 border-b border-[#13221e] pb-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] hover:text-[#4072f6]">Explore the editor <ArrowRight size={15} /></a>
             </div>
             <div className="relative">
               <div className="absolute -right-7 -top-8 h-44 w-44 rounded-full border border-[#13221e]/20" aria-hidden="true" />

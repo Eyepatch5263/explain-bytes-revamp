@@ -176,6 +176,7 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+      "monaco-editor/esm/vs/editor/editor.api.js": path.resolve(import.meta.dirname, "node_modules", "monaco-editor", "esm", "vs", "editor", "editor.api.js"),
     },
   },
   envDir: path.resolve(import.meta.dirname),
