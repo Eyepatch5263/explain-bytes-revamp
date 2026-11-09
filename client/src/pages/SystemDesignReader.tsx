@@ -1,25 +1,66 @@
-import { useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, ExternalLink, LogOut, Menu, Network, PanelLeftClose, X, Zap } from "lucide-react";
+import { Suspense, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, LoaderCircle, LogOut, Menu, X, Zap } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import DatabaseSimulationWrapper from "@/components/simulations/system-design/database/database-simulation-wrapper";
-import DnsSimulationWrapper from "@/components/simulations/system-design/dns/dns-simulation-wrapper";
-import SimulationDashboard from "@/components/simulations/system-design/load-balancing/simulation-dashboard";
 import { ChapterAudioPlayer } from "@/components/docs/ChapterAudioPlayer";
 import { systemDesignMdxComponents } from "@/components/docs/SystemDesignMdxComponents";
 import { useReadingProgress } from "@/hooks/useReadingProgress";
-import { getChapterHeadings, getSystemDesignCategories, getSystemDesignDoc, simulationSlugs, systemDesignDocs } from "@/lib/systemDesignDocs";
+import { getChapterHeadings, getSystemDesignCategories, getSystemDesignDoc, prefetchChapter, simulationSlugs, systemDesignDocs } from "@/lib/systemDesignDocs";
 import "./systemDesignReaderWide.css";
+import { lazy } from "react";
 
 type SystemDesignReaderProps = {
   slug?: string;
   view?: string;
 };
 
+const simulationComponents = {
+  dns: lazy(() =>
+    import("@/components/simulations/system-design/dns/dns-simulation-wrapper")
+  ),
+  database: lazy(() =>
+    import("@/components/simulations/system-design/database/database-simulation-wrapper")
+  ),
+  "load-balancing": lazy(() =>
+    import("@/components/simulations/system-design/load-balancing/simulation-dashboard")
+  ),
+};
+
 const Simulation = ({ slug }: { slug: string }) => {
-  if (slug === "dns") return <DnsSimulationWrapper />;
-  if (slug === "database") return <DatabaseSimulationWrapper />;
-  if (slug === "load-balancing") return <SimulationDashboard />;
-  return null;
+  const Component =
+    simulationComponents[slug as keyof typeof simulationComponents];
+
+  if (!Component) return null;
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-20 gap-2">
+          <LoaderCircle className="animate-spin" size={18} />
+          Loading simulation...
+        </div>
+      }
+    >
+      <Component />
+    </Suspense>
+  );
+};
+
+const AuthActions = () => {
+  const { user, logout } = useAuth();
+
+  if (!user) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => logout()}
+      title="Log out"
+      className="inline-flex items-center gap-1"
+    >
+      <LogOut size={13} />
+      <span className="hidden md:inline">Log out</span>
+    </button>
+  );
 };
 
 export default function SystemDesignReader({ slug = "introduction", view }: SystemDesignReaderProps) {
@@ -33,7 +74,7 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
   const previous = chapterIndex > 0 ? systemDesignDocs[chapterIndex - 1] : null;
   const next = chapterIndex < systemDesignDocs.length - 1 ? systemDesignDocs[chapterIndex + 1] : null;
   const isSimulation = view === "simulation" && simulationSlugs.has(doc.slug);
-  const MdxContent = doc.Component;
+  const MdxContent = doc.Component ?? (() => null);
   const { percent, completed } = useReadingProgress({ slug: doc.slug, containerRef: articleRef });
 
   const chapterRail = (
@@ -43,7 +84,13 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
         <section key={category} className="flashdocs-rail-group">
           <h2>{category}</h2>
           {docs.map((item) => (
-            <a key={item.slug} href={`/docs/system-design/${item.slug}`} className={item.slug === doc.slug && !isSimulation ? "is-active" : ""} onClick={() => setSidebarOpen(false)}>
+            <a
+              key={item.slug}
+              href={`/docs/system-design/${item.slug}`}
+              className={item.slug === doc.slug && !isSimulation ? "is-active" : ""}
+              onMouseEnter={() => prefetchChapter(item.slug)}
+              onClick={() => setSidebarOpen(false)}
+            >
               <span>{String(item.order).padStart(2, "0")}</span>{item.title}
             </a>
           ))}
@@ -59,17 +106,7 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
         <div className="flashdocs-reader-context"><BookOpen size={15} /> Flash docs <span>/</span> System Design</div>
         <div className="flashdocs-reader-actions">
           <a href="/flashcards">Practice</a>
-          {user && (
-            <button
-              type="button"
-              onClick={() => logout()}
-              title="Log out"
-              className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-[#e66b5b] hover:opacity-80 transition-opacity"
-            >
-              <LogOut size={13} />
-              <span className="hidden md:inline">Log out</span>
-            </button>
-          )}
+          <AuthActions/>
           <button type="button" onClick={() => setSidebarOpen(true)}><Menu size={17} /> Chapters</button>
         </div>
       </header>
@@ -91,7 +128,8 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
                 <p>Interact with the original Explain Bytes visual simulation, then return to the complete chapter when you are ready.</p>
                 <a className="flashdocs-outline-button" href={`/docs/system-design/${doc.slug}`}><ArrowLeft size={15} /> Back to chapter</a>
               </header>
-              <div className="flashdocs-simulation-shell"><Simulation slug={doc.slug} /></div>
+              <div className="flashdocs-simulation-shell">
+                <Simulation slug={doc.slug} /></div>
             </>
           ) : (
             <>
@@ -110,11 +148,38 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
               </header>
 
               <div className="flashdocs-article-rule" />
-              <div className="flashdocs-mdx-content"><MdxContent components={systemDesignMdxComponents} /></div>
+              <div className="flashdocs-mdx-content">
+                <Suspense
+                  fallback={
+                    <div className="flashdocs-chapter-loading flex items-center justify-center gap-2 py-20 font-mono text-xs opacity-60">
+                      <LoaderCircle className="animate-spin" size={16} />
+                      Opening chapter…
+                    </div>
+                  }
+                >
+                  <MdxContent components={systemDesignMdxComponents} />
+                </Suspense>
+              </div>
 
               <footer className="flashdocs-chapter-pagination">
-                {previous ? <a href={`/docs/system-design/${previous.slug}`}><span><ArrowLeft size={16} /> Previous chapter</span><b>{previous.title}</b></a> : <span />}
-                {next ? <a href={`/docs/system-design/${next.slug}`}><span>Next chapter <ArrowRight size={16} /></span><b>{next.title}</b></a> : <span />}
+                {previous ? (
+                  <a
+                    href={`/docs/system-design/${previous.slug}`}
+                    onMouseEnter={() => prefetchChapter(previous.slug)}
+                  >
+                    <span><ArrowLeft size={16} /> Previous chapter</span>
+                    <b>{previous.title}</b>
+                  </a>
+                ) : <span />}
+                {next ? (
+                  <a
+                    href={`/docs/system-design/${next.slug}`}
+                    onMouseEnter={() => prefetchChapter(next.slug)}
+                  >
+                    <span>Next chapter <ArrowRight size={16} /></span>
+                    <b>{next.title}</b>
+                  </a>
+                ) : <span />}
               </footer>
             </>
           )}

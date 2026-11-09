@@ -1,5 +1,9 @@
-import type { ComponentType } from "react";
-import { systemDesignMdxRaw } from "@/data/systemDesignMdxRaw";
+import { lazy, type ComponentType } from "react";
+import { mdxRawSources } from "virtual:mdx-raw-sources";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 export type SystemDesignDoc = {
   slug: string;
@@ -11,6 +15,10 @@ export type SystemDesignDoc = {
   Component: ComponentType<{ components?: Record<string, ComponentType<any>> }>;
 };
 
+// ---------------------------------------------------------------------------
+// Source-level metadata (used by the FlashDocs catalogue page)
+// ---------------------------------------------------------------------------
+
 export const systemDesignSourceMeta = {
   id: "system-design",
   title: "System Design",
@@ -18,8 +26,12 @@ export const systemDesignSourceMeta = {
     "Learn the fundamentals of designing scalable, reliable, and efficient systems. Covers distributed systems, microservices, and architectural patterns.",
   icon: "Server",
   color: "oklch(0.6 0.2 280)",
-  articles: 21,
+  articles: 25,
 };
+
+// ---------------------------------------------------------------------------
+// Category display order
+// ---------------------------------------------------------------------------
 
 const SOURCE_CATEGORY_ORDER: Record<string, number> = {
   Introduction: 1,
@@ -35,27 +47,102 @@ const SOURCE_CATEGORY_ORDER: Record<string, number> = {
   Summary: 11,
 };
 
+// ---------------------------------------------------------------------------
+// Vite globs — compiled MDX components (lazy-loaded, code-split per chapter)
+// ---------------------------------------------------------------------------
 
 type MdxModule = {
   default: ComponentType<{ components?: Record<string, ComponentType<any>> }>;
 };
 
-const compiledModules = import.meta.glob("../content/system-design/**/*.mdx", {
-  eager: true,
-}) as Record<string, MdxModule>;
+type MdxLoader = () => Promise<MdxModule>;
 
-// Build a slug → Component lookup from the nested glob results
-const componentBySlug: Record<string, MdxModule["default"]> = {};
-for (const [filePath, mod] of Object.entries(compiledModules)) {
-  // filePath looks like "../content/system-design/building-blocks/dns.mdx"
-  const slug = filePath.split("/").pop()!.replace(/\.mdx$/, "");
-  componentBySlug[slug] = mod.default;
+const compiledLoaders = import.meta.glob(
+  "../content/system-design/**/*.mdx",
+) as Record<string, MdxLoader>;
+
+// ---------------------------------------------------------------------------
+// Slug helpers
+// ---------------------------------------------------------------------------
+
+/** Extracts a URL-friendly slug from a glob file path. */
+const slugFromPath = (filePath: string): string =>
+  filePath.split("/").pop()!.replace(/\.mdx$/, "");
+
+/** Pretty-prints a slug as a title (fallback when frontmatter has no title). */
+const displayTitle = (slug: string): string =>
+  slug
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+// ---------------------------------------------------------------------------
+// Loader lookup  (slug → compiled-MDX loader)
+// ---------------------------------------------------------------------------
+
+const loadersBySlug: Record<string, MdxLoader> = {};
+for (const [filePath, loader] of Object.entries(compiledLoaders)) {
+  loadersBySlug[slugFromPath(filePath)] = loader;
 }
 
-function getFrontmatter(source: string) {
+// ---------------------------------------------------------------------------
+// Prefetch cache
+// ---------------------------------------------------------------------------
+
+const modulePromiseCache = new Map<string, Promise<MdxModule>>();
+const moduleLoadedCache = new Map<string, MdxModule>();
+
+/**
+ * Prefetches the MDX chunk for a chapter in the background.
+ * Safe to call repeatedly on link hover or focus.
+ */
+export function prefetchChapter(slug: string): Promise<MdxModule | undefined> {
+  const loader = loadersBySlug[slug];
+  if (!loader) return Promise.resolve(undefined);
+
+  const loaded = moduleLoadedCache.get(slug);
+  if (loaded) return Promise.resolve(loaded);
+
+  const pending = modulePromiseCache.get(slug);
+  if (pending) return pending;
+
+  const promise = loader()
+    .then((mod) => {
+      moduleLoadedCache.set(slug, mod);
+      return mod;
+    })
+    .catch((err) => {
+      modulePromiseCache.delete(slug);
+      console.error(`Failed to prefetch MDX chunk for "${slug}":`, err);
+      throw err;
+    });
+
+  modulePromiseCache.set(slug, promise);
+  return promise;
+}
+
+// ---------------------------------------------------------------------------
+// React.lazy wrappers  (one per chapter, backed by prefetch cache)
+// ---------------------------------------------------------------------------
+
+const componentBySlug: Record<string, ComponentType<any>> = {};
+for (const slug of Object.keys(loadersBySlug)) {
+  componentBySlug[slug] = lazy(async () => {
+    const mod = await prefetchChapter(slug);
+    if (!mod || !mod.default) {
+      throw new Error(`Unable to load MDX component for chapter: ${slug}`);
+    }
+    return { default: mod.default };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Frontmatter parser
+// ---------------------------------------------------------------------------
+
+function getFrontmatter(source: string): Record<string, string> {
   const match = source.match(/^---\s*\n([\s\S]*?)\n---\s*\n?/);
   const metadata: Record<string, string> = {};
-
   if (!match) return metadata;
 
   for (const line of match[1].split("\n")) {
@@ -69,20 +156,16 @@ function getFrontmatter(source: string) {
   return metadata;
 }
 
-const displayTitle = (slug: string) =>
-  slug
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+// ---------------------------------------------------------------------------
+// Build the sorted document list from the virtual raw-source module
+// ---------------------------------------------------------------------------
 
-export const systemDesignDocs: SystemDesignDoc[] = Object.entries(systemDesignMdxRaw)
+export const systemDesignDocs: SystemDesignDoc[] = Object.entries(mdxRawSources)
   .map(([slug, source]) => {
     const frontmatter = getFrontmatter(source);
-    const Component = componentBySlug[slug];
-
-    if (!Component) {
-      throw new Error(`Unable to compile System Design chapter: ${slug}`);
-    }
+    const Component =
+      componentBySlug[slug] ??
+      lazy(() => Promise.resolve({ default: () => null }));
 
     return {
       slug,
@@ -95,9 +178,17 @@ export const systemDesignDocs: SystemDesignDoc[] = Object.entries(systemDesignMd
     };
   })
   .sort((left, right) => {
-    const categoryDelta = (SOURCE_CATEGORY_ORDER[left.category] ?? 999) - (SOURCE_CATEGORY_ORDER[right.category] ?? 999);
-    return categoryDelta || left.order - right.order || left.title.localeCompare(right.title);
+    const categoryDelta =
+      (SOURCE_CATEGORY_ORDER[left.category] ?? 999) -
+      (SOURCE_CATEGORY_ORDER[right.category] ?? 999);
+    return (
+      categoryDelta || left.order - right.order || left.title.localeCompare(right.title)
+    );
   });
+
+// ---------------------------------------------------------------------------
+// Lookup helpers
+// ---------------------------------------------------------------------------
 
 export const getSystemDesignDoc = (slug: string) =>
   systemDesignDocs.find((doc) => doc.slug === slug);
@@ -109,10 +200,17 @@ export const getSystemDesignCategories = () => {
     existing.push(doc);
     categories.set(doc.category, existing);
   }
-  return Array.from(categories.entries()).sort(([left], [right]) => (SOURCE_CATEGORY_ORDER[left] ?? 999) - (SOURCE_CATEGORY_ORDER[right] ?? 999));
+  return Array.from(categories.entries()).sort(
+    ([left], [right]) =>
+      (SOURCE_CATEGORY_ORDER[left] ?? 999) - (SOURCE_CATEGORY_ORDER[right] ?? 999),
+  );
 };
 
 export const simulationSlugs = new Set(["dns", "database", "load-balancing"]);
+
+// ---------------------------------------------------------------------------
+// Heading extraction (used for the "On this page" TOC sidebar)
+// ---------------------------------------------------------------------------
 
 export const getChapterHeadings = (source: string) =>
   Array.from(source.matchAll(/^#{2,3}\s+(.+)$/gm)).map((match) => {

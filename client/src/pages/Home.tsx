@@ -29,7 +29,7 @@ import {
 import { toast } from "sonner";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useReadingProgressMap } from "@/hooks/useReadingProgress";
-import { systemDesignDocs } from "@/lib/systemDesignDocs";
+import { prefetchChapter, systemDesignDocs } from "@/lib/systemDesignDocs";
 import { ImageWithPlaceholder } from "@/components/ImageWithPlaceholder";
 import {
   DropdownMenu,
@@ -254,7 +254,14 @@ export default function Home() {
                 <span className="resume-reading-mark"><BookOpen size={17} /></span>
                 <div><p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#e66b5b]">Saved reading progress</p><p className="mt-1 font-display text-2xl tracking-[-0.04em]">Return to <em>{resumeDoc.title}</em></p></div>
               </div>
-              <a href={`/docs/system-design/${resumeDoc.slug}`} className="inline-flex items-center gap-2 self-start border-b border-[#e66b5b] pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#e66b5b] sm:self-auto">Resume at {Math.round(progressMap[resumeDoc.slug].ratio * 100)}% <ArrowRight size={15} /></a>
+              <a
+                href={`/docs/system-design/${resumeDoc.slug}`}
+                onMouseEnter={() => prefetchChapter(resumeDoc.slug)}
+                onFocus={() => prefetchChapter(resumeDoc.slug)}
+                className="inline-flex items-center gap-2 self-start border-b border-[#e66b5b] pb-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#e66b5b] sm:self-auto"
+              >
+                Resume at {Math.round(progressMap[resumeDoc.slug].ratio * 100)}% <ArrowRight size={15} />
+              </a>
             </div>
           </section>
         )}

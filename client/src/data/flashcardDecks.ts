@@ -1,6 +1,6 @@
 /** Source: existing public Explain Bytes flashcard decks, rendered through the Marginalia Lab study system. */
-import { systemDesignFlashcards, type Flashcard } from "@/data/systemDesignFlashcards";
-import { dbmsFlashcards, networkingFlashcards, operatingSystemsFlashcards } from "@/data/additionalFlashcards";
+import { systemDesignFlashcards, type Flashcard } from "./systemDesignFlashcards";
+import { dbmsFlashcards, networkingFlashcards, operatingSystemsFlashcards } from "./additionalFlashcards";
 
 export type DeckSlug = "system-design" | "operating-systems" | "networking" | "dbms";
 
