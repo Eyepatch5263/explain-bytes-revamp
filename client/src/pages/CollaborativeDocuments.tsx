@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "@/styles/collaborative.css";
 import { useLocation } from "wouter";
-import { ArrowLeft, ArrowRight, BookOpen, Check, Code2, FilePlus2, GitFork, LoaderCircle, Plus, Search, Share2, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, Code2, FilePlus2, GitFork, LoaderCircle, Plus, Search, Share2, ShieldCheck, Trash2, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { DOCUMENT_SECTIONS } from "../../../shared/collaboration";
-import { collaborativeRequest, type CollaborativeDocument } from "@/lib/collaborative-api";
+import { collaborativeRequest, getDocumentStatusBadge, type CollaborativeDocument } from "@/lib/collaborative-api";
+import { confirmToast } from "@/lib/confirm-toast";
 import CollaborativeRoom from "@/components/collaborative/CollaborativeRoom";
 
 const dateLabel = (value: string | null) => value ? new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Just created";
@@ -113,7 +114,25 @@ export default function CollaborativeDocuments({ documentId }: { documentId?: st
       await navigator.clipboard.writeText(link);
       toast.success("Room link copied. Share it with up to four other people.");
     } catch {
-      window.prompt("Copy this room link:", link);
+      toast.info(`Room link: ${link}`, { duration: 8000 });
+    }
+  };
+
+  const deleteDocument = async (id: string, docTitle: string) => {
+    const confirmed = await confirmToast({
+      title: `Delete "${docTitle}"?`,
+      description: "This manuscript and its room will be permanently removed. This action cannot be undone.",
+      confirmLabel: "Delete Document",
+      cancelLabel: "Cancel",
+      isDestructive: true,
+    });
+    if (!confirmed) return;
+    try {
+      await request(`/documents/${id}`, { method: "DELETE" });
+      setDocuments((prev) => prev.filter((doc) => doc.id !== id));
+      toast.success("Document deleted.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The document could not be deleted.");
     }
   };
 
@@ -135,6 +154,7 @@ export default function CollaborativeDocuments({ documentId }: { documentId?: st
         onDocumentChange={setActiveDocument}
         onFork={(fork) => { toast.success("A private fork is now on your shelf."); setLocation(`/collaborate/${fork.id}`); }}
         onShare={() => copyShareLink(activeDocument.id)}
+        onDelete={() => { toast.success("Document deleted."); setLocation("/collaborate"); }}
       />
     );
   }
@@ -143,7 +163,15 @@ export default function CollaborativeDocuments({ documentId }: { documentId?: st
     <main className="collab-page">
       <header className="collab-topbar">
         <a className="collab-wordmark" href="/">Explain Bytes</a>
-        <nav className="collab-topnav"><a href="/docs">Library</a><span className="collab-nav-current">Shared drafts</span></nav>
+        <nav className="collab-topnav">
+          <a href="/docs">Library</a>
+          <span className="collab-nav-current">Shared drafts</span>
+          {user?.email?.toLowerCase().trim() === "pratyushpragyey@gmail.com" && (
+            <a href="/admin" style={{ color: "var(--collab-coral)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+              <ShieldCheck size={12} /> Admin review
+            </a>
+          )}
+        </nav>
         <div className="collab-account"><span className="collab-avatar">{(user?.name ?? user?.email ?? "M").slice(0, 1).toUpperCase()}</span><span>{user?.name ?? "Member"}</span></div>
       </header>
       <section className="collab-shelf-hero">
@@ -171,14 +199,26 @@ export default function CollaborativeDocuments({ documentId }: { documentId?: st
         {loading ? <div className="collab-loading"><LoaderCircle className="animate-spin" size={18} /> Gathering your documents…</div> : pageError ? <div className="collab-message-error">{pageError}</div> : filteredDocuments.length === 0 ? (
           <div className="collab-empty"><BookOpen size={24} /><h3>{documents.length ? "No matching manuscripts." : "Your shelf is waiting."}</h3><p>{documents.length ? "Try another title or category." : "Create the first draft, then invite a collaborator into the room."}</p>{!documents.length && <button className="collab-button collab-button-coral" onClick={() => setCreateOpen(true)}><FilePlus2 size={15} /> Write the first draft</button>}</div>
         ) : (
-          <div className="collab-document-grid">{filteredDocuments.map((document, index) => <article className="collab-document-card" key={document.id}>
-            <div className="collab-card-top"><span className="collab-card-number">{String(index + 1).padStart(2, "0")}</span><span className={`collab-status ${document.status === "published" ? "is-published" : ""}`}>{document.status === "published" ? "Published" : "Draft"}</span></div>
+          <div className="collab-document-grid">{filteredDocuments.map((document, index) => {
+            const badge = getDocumentStatusBadge(document.status);
+            return (
+              <article className="collab-document-card" key={document.id}>
+                <div className="collab-card-top"><span className="collab-card-number">{String(index + 1).padStart(2, "0")}</span><span className={`collab-status ${badge.className}`}>{badge.label}</span></div>
             <a href={`/collaborate/${document.id}`} className="collab-card-title">{document.title}</a>
             <p className="collab-card-category">{document.category}<span> / </span>{document.section}</p>
             <p className="collab-card-excerpt">{document.content.replace(/^#+\s+/gm, "").replace(/[`*_>#]/g, "").slice(0, 130) || "A blank page, ready for a good explanation."}</p>
             <div className="collab-card-meta"><span>UPDATED {dateLabel(document.updatedAt).toUpperCase()}</span>{document.forkedFromDocumentId && <span className="collab-fork-origin"><GitFork size={12} /> FORKED</span>}</div>
-            <div className="collab-card-actions"><a href={`/collaborate/${document.id}`}>Open room <ArrowRight size={14} /></a><button aria-label={`Share ${document.title}`} onClick={() => copyShareLink(document.id)}><Share2 size={14} /></button></div>
-          </article>)}</div>
+            <div className="collab-card-actions">
+              <a href={`/collaborate/${document.id}`}>Open room <ArrowRight size={14} /></a>
+              <div className="collab-card-action-buttons">
+                <button aria-label={`Share ${document.title}`} title="Share room" onClick={() => copyShareLink(document.id)}><Share2 size={14} /></button>
+                {document.isOwner && (
+                  <button aria-label={`Delete ${document.title}`} title="Delete document" className="collab-card-delete-btn" onClick={() => deleteDocument(document.id, document.title)}><Trash2 size={14} /></button>
+                )}
+              </div>
+            </div>
+          </article>
+        ); })}</div>
         )}
         <div className="collab-shelf-footnote"><span><Check size={14} /> Every keystroke syncs through Yjs and is persisted as a Postgres document.</span><a href="/docs">Return to the library <ArrowRight size={13} /></a></div>
       </section>

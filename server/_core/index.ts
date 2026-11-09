@@ -57,11 +57,18 @@ async function startServer() {
   });
 
   server.on("upgrade", (request, socket, head) => {
-    const pathname = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`).pathname;
-    if (pathname !== "/collab") {
-      socket.destroy();
+    let pathname = "/";
+    try {
+      pathname = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`).pathname;
+    } catch {
       return;
     }
+
+    if (pathname !== "/collab") {
+      // Let other upgrade listeners (e.g. Vite HMR websocket) handle this upgrade
+      return;
+    }
+
     const origin = request.headers.origin;
     const allowedOrigins = (process.env.COLLABORATION_ALLOWED_ORIGINS ?? "")
       .split(",").map((value) => value.trim()).filter(Boolean);

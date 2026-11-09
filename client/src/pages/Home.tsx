@@ -93,9 +93,9 @@ export default function Home() {
                       className="group flex items-center gap-2 rounded-full border border-[#13221e]/15 dark:border-[#f4efe7]/20 bg-transparent p-1 pr-3 font-mono text-[11px] text-[#13221e]/85 dark:text-[#f4efe7]/90 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#13221e]/30 dark:hover:border-[#f4efe7]/40 hover:bg-[#13221e]/5 dark:hover:bg-[#f4efe7]/10 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#13221e]/20 dark:focus-visible:ring-[#f4efe7]/20"
                       aria-label="Account menu"
                     >
-                      {user?.avatarUrl ? (
+                      {user?.avatar_url ? (
                         <img
-                          src={user.avatarUrl}
+                          src={user.avatar_url}
                           alt={user.name || "User"}
                           className="h-7 w-7 rounded-full border border-[#13221e]/20 dark:border-[#f4efe7]/20 object-cover"
                         />

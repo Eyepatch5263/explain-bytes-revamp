@@ -286,6 +286,18 @@ importers:
       '@tiptap/extension-collaboration-caret':
         specifier: ^3.33.0
         version: 3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0)(@tiptap/y-tiptap@3.2.0(prosemirror-model@1.25.12)(prosemirror-state@1.4.4)(prosemirror-view@1.42.9)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33))
+      '@tiptap/extension-table':
+        specifier: ^3.33.0
+        version: 3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0)
+      '@tiptap/extension-table-cell':
+        specifier: ^3.33.0
+        version: 3.33.0(@tiptap/extension-table@3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0))
+      '@tiptap/extension-table-header':
+        specifier: ^3.33.0
+        version: 3.33.0(@tiptap/extension-table@3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0))
+      '@tiptap/extension-table-row':
+        specifier: ^3.33.0
+        version: 3.33.0(@tiptap/extension-table@3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0))
       '@tiptap/markdown':
         specifier: ^3.33.0
         version: 3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0)
@@ -340,6 +352,9 @@ importers:
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.1)
+      explain-bytes-revamp:
+        specifier: 'link:'
+        version: 'link:'
       express:
         specifier: ^4.21.2
         version: 4.21.2
@@ -2638,6 +2653,27 @@ packages:
     resolution: {integrity: sha512-JZq1Us21tA6UscEeOC/U1RUIDD+t4H7KkXmkA8fuQOHNkMTnsYZAu4/7iFJz9geHmGeoq+mHCrh/gOrWt3jdew==}
     peerDependencies:
       '@tiptap/core': 3.33.0
+
+  '@tiptap/extension-table-cell@3.33.0':
+    resolution: {integrity: sha512-Xr5EvXvbxqY3M7wHx3K4Vgm8i6kglEW1omnPg5R2mOUC+I6o0+5vl9w1h9MswigBmf7cKFDX06jJ/LMGrYIM8w==}
+    peerDependencies:
+      '@tiptap/extension-table': 3.33.0
+
+  '@tiptap/extension-table-header@3.33.0':
+    resolution: {integrity: sha512-eCvPsQ5p5V+TWpWsDHJUt4qbglf2u6h8WjHEUPjEozcQfYAN644SLPbYjgbUXbJQ7v2geyCcVjjoqJBwNIbwYA==}
+    peerDependencies:
+      '@tiptap/extension-table': 3.33.0
+
+  '@tiptap/extension-table-row@3.33.0':
+    resolution: {integrity: sha512-YZfXVPjLrm0/WYZgGiFZ5qoomRiI/nz1prRDJyoGbq6zim/07ruNiAJBeegguWBOxlMZiUwsgMoyMak/ubOTeQ==}
+    peerDependencies:
+      '@tiptap/extension-table': 3.33.0
+
+  '@tiptap/extension-table@3.33.0':
+    resolution: {integrity: sha512-3eWe626pd1HGeLB+iMylZbg1Nx9og/XwlHAkJoGEmgsyqKh+BASqS87GCN1158XhtMVAR85cuEO4Luhm1VyR1w==}
+    peerDependencies:
+      '@tiptap/core': 3.33.0
+      '@tiptap/pm': 3.33.0
 
   '@tiptap/extension-text@3.33.0':
     resolution: {integrity: sha512-R9qVza+udPT+LezNkTkfLctN/9EFD/zFLUA6Lly9ehXZbfH9SLh149qdLdLBl9KMSgYhkFXcySSIoAULCKPRdg==}
@@ -7332,6 +7368,23 @@ snapshots:
   '@tiptap/extension-strike@3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))':
     dependencies:
       '@tiptap/core': 3.33.0(@tiptap/pm@3.33.0)
+
+  '@tiptap/extension-table-cell@3.33.0(@tiptap/extension-table@3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0))':
+    dependencies:
+      '@tiptap/extension-table': 3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0)
+
+  '@tiptap/extension-table-header@3.33.0(@tiptap/extension-table@3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0))':
+    dependencies:
+      '@tiptap/extension-table': 3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0)
+
+  '@tiptap/extension-table-row@3.33.0(@tiptap/extension-table@3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0))':
+    dependencies:
+      '@tiptap/extension-table': 3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0)
+
+  '@tiptap/extension-table@3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0)':
+    dependencies:
+      '@tiptap/core': 3.33.0(@tiptap/pm@3.33.0)
+      '@tiptap/pm': 3.33.0
 
   '@tiptap/extension-text@3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))':
     dependencies:

@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import { documents, type Document } from "../../drizzle/schema";
+import { documents, users, type Document } from "../../drizzle/schema";
 import { getDb } from "../db";
 
 export class RepositoryError extends Error {
@@ -49,4 +49,33 @@ export function toPublicDocument(document: Document, viewerId: string) {
     isOwner: document.ownerId === viewerId,
     forkedFromDocumentId: document.forkedFromDocumentId ?? null,
   };
+}
+
+export function toAdminDocument(
+  document: Document,
+  author?: { name?: string | null; email?: string | null }
+) {
+  return {
+    ...toPublicDocument(document, ""),
+    authorName: author?.name ?? "Unknown author",
+    authorEmail: author?.email ?? "unknown@user.com",
+    reviewedAt: document.reviewedAt?.toISOString() ?? null,
+  };
+}
+
+export async function listPublishedDocuments() {
+  const db = await getDb();
+  if (!db) throw new RepositoryError("PostgreSQL is not configured for collaborative documents.", 503);
+  const rows = await db
+    .select({
+      document: documents,
+      authorName: users.name,
+      authorEmail: users.email,
+    })
+    .from(documents)
+    .leftJoin(users, eq(documents.ownerId, users.id))
+    .where(eq(documents.status, "published"))
+    .orderBy(desc(documents.publishedAt), desc(documents.updatedAt));
+
+  return rows.map((r) => toAdminDocument(r.document, { name: r.authorName, email: r.authorEmail }));
 }

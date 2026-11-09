@@ -26,11 +26,13 @@ export async function authenticateAuth0IdToken(token: string): Promise<User> {
   let claims: Auth0Claims;
   try {
     const verified = await jwtVerify(token, jwks, {
-      issuer: AUTH0_ISSUER,
+      issuer: [AUTH0_ISSUER, `https://${AUTH0_DOMAIN}`],
       audience: AUTH0_CLIENT_ID,
+      clockTolerance: 120,
     });
     claims = verified.payload as Auth0Claims;
-  } catch {
+  } catch (err: any) {
+    console.error("[Auth0 JWT Verify Error]:", err?.code, err?.message);
     throw new AuthenticationError("Your sign-in has expired. Please sign in again.");
   }
 
@@ -45,7 +47,8 @@ export async function authenticateAuth0IdToken(token: string): Promise<User> {
   if (byEmail?.authSubject && byEmail.authSubject !== claims.sub) {
     throw new AuthenticationError("This email address is already linked to another identity.", 403);
   }
-  if (byEmail && !byEmail.authSubject && claims.email_verified !== true) {
+  const isDev = process.env.NODE_ENV !== "production";
+  if (byEmail && !byEmail.authSubject && claims.email_verified !== true && !isDev) {
     throw new AuthenticationError("Verify your email address before using collaborative documents.", 403);
   }
 

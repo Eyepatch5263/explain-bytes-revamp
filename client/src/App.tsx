@@ -1,6 +1,7 @@
 /** Marginalia Lab design reminder: maintain the calm light-paper base and keep routing free of visual boilerplate. */
 import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmToastContainer } from "@/lib/confirm-toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -14,6 +15,7 @@ const FlashDocs = lazy(() => import("./pages/FlashDocs"));
 const SystemDesignReader = lazy(() => import("./pages/SystemDesignReader"));
 const EngineeringTerms = lazy(() => import("./pages/EngineeringTerms"));
 const CollaborativeDocuments = lazy(() => import("./pages/CollaborativeDocuments"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const Login = lazy(() => import("./pages/Login"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -62,6 +64,14 @@ function Router() {
     );
   };
 
+  const AdminRoute = () => (
+    <ProtectedRoute>
+      <Suspense fallback={<LoadingSkeleton label="Opening the Admin Dashboard" />}>
+        <AdminDashboard />
+      </Suspense>
+    </ProtectedRoute>
+  );
+
   return (
     <Switch>
       {/* Public routes */}
@@ -75,6 +85,7 @@ function Router() {
       <Route path="/docs" component={ProtectedFlashDocs} />
       <Route path="/collaborate" component={CollaborativeRoute} />
       <Route path="/collaborate/:documentId" component={CollaborativeRoute} />
+      <Route path="/admin" component={AdminRoute} />
       <Route path="/docs/system-design" component={SystemDesignRoute} />
       <Route path="/docs/system-design/:slug" component={SystemDesignRoute} />
       <Route path="/docs/system-design/:slug/:view" component={SystemDesignRoute} />
@@ -93,6 +104,7 @@ function App() {
       <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
+          <ConfirmToastContainer />
           <Suspense fallback={<LoadingSkeleton label="Opening Explain Bytes" />}>
             <Router />
           </Suspense>

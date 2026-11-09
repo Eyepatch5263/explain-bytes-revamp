@@ -12,6 +12,9 @@ ALTER TABLE public.documents
   ADD COLUMN IF NOT EXISTS forked_from_document_id text,
   ADD COLUMN IF NOT EXISTS published_at timestamptz;
 
+ALTER TABLE public.documents DROP CONSTRAINT IF EXISTS documents_status_check;
+ALTER TABLE public.documents ADD CONSTRAINT documents_status_check CHECK (status = ANY (ARRAY['draft'::text, 'review'::text, 'approved'::text, 'rejected'::text, 'published'::text]));
+
 DO $$
 BEGIN
   IF NOT EXISTS (

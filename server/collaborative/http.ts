@@ -7,9 +7,12 @@ import { DOCUMENT_SECTIONS } from "../../shared/collaboration";
 import { getDb } from "../db";
 import { requireCollaborator, type AuthenticatedRequest } from "./auth";
 import { getRoomParticipantCount, storeYjsDocument } from "./hocuspocus";
-import { getDocumentById, listOwnerDocuments, RepositoryError, saveDocumentContent, toPublicDocument } from "./repository";
+import { getDocumentById, listOwnerDocuments, listPublishedDocuments, RepositoryError, saveDocumentContent, toPublicDocument } from "./repository";
+import { publishDocumentToFileAndGit } from "./git-publisher";
 import type { Hocuspocus } from "@hocuspocus/server";
 import * as Y from "yjs";
+
+export const ADMIN_EMAIL = "pratyushpragyey@gmail.com";
 
 const createSchema = z.object({
   title: z.string().trim().min(1).max(160),
@@ -129,6 +132,29 @@ export function createCollaborativeHttpRouter(hocuspocus: Hocuspocus<any>) {
     res.json({ document: toPublicDocument(published, user.id) });
   }));
 
+  router.delete("/documents/:documentId", asyncHandler(async (req, res) => {
+    const id = documentIdSchema.safeParse(req.params.documentId);
+    if (!id.success) {
+      res.status(404).json({ error: "This document room does not exist." });
+      return;
+    }
+    const document = await getDocumentById(id.data);
+    if (!document) {
+      res.status(404).json({ error: "This document room does not exist." });
+      return;
+    }
+    const user = req.collaborationUser!;
+    if (!ownerOf(document, user.id)) {
+      res.status(403).json({ error: "Only the original owner can delete this document." });
+      return;
+    }
+    const db = await getDb();
+    if (!db) throw new RepositoryError("PostgreSQL is not configured for collaborative documents.", 503);
+    hocuspocus.closeConnections(document.documentId);
+    await db.delete(documents).where(eq(documents.documentId, document.documentId));
+    res.json({ success: true, documentId: document.documentId });
+  }));
+
   router.post("/documents/:documentId/fork", asyncHandler(async (req, res) => {
     const id = documentIdSchema.safeParse(req.params.documentId);
     if (!id.success) {
@@ -162,6 +188,95 @@ export function createCollaborativeHttpRouter(hocuspocus: Hocuspocus<any>) {
     const fork = Array.isArray(forkRows) ? forkRows[0] : undefined;
     if (!fork) throw new RepositoryError("The fork could not be created.", 500);
     res.status(201).json({ document: toPublicDocument(fork, req.collaborationUser!.id) });
+  }));
+
+  function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    const email = req.collaborationUser?.email?.toLowerCase().trim();
+    if (email !== ADMIN_EMAIL.toLowerCase().trim()) {
+      res.status(403).json({ error: "Access denied. Admin privileges required." });
+      return;
+    }
+    next();
+  }
+
+  // Admin routes: view published manuscripts, approve (writes to content dir and pushes to Git), reject
+  router.get("/admin/documents", requireAdmin, asyncHandler(async (req, res) => {
+    const published = await listPublishedDocuments();
+    res.json({ documents: published });
+  }));
+
+  router.post("/admin/documents/:documentId/approve", requireAdmin, asyncHandler(async (req, res) => {
+    const id = documentIdSchema.safeParse(req.params.documentId);
+    if (!id.success) {
+      res.status(404).json({ error: "This document room does not exist." });
+      return;
+    }
+    const document = await getDocumentById(id.data);
+    if (!document) {
+      res.status(404).json({ error: "This document does not exist." });
+      return;
+    }
+
+    // 1. Write file to content directory and push changes to git
+    const gitResult = await publishDocumentToFileAndGit({
+      title: document.title ?? "Untitled",
+      category: document.topic ?? "general",
+      section: document.category ?? "system design",
+      content: document.content ?? "",
+      description: document.description,
+      documentId: document.documentId,
+    });
+
+    // 2. Update status in Postgres to approved
+    const db = await getDb();
+    if (!db) throw new RepositoryError("PostgreSQL is not configured for collaborative documents.", 503);
+    const [updated] = await db
+      .update(documents)
+      .set({
+        status: "approved",
+        reviewedBy: req.collaborationUser!.id,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(documents.documentId, document.documentId))
+      .returning();
+
+    res.json({
+      success: true,
+      document: toPublicDocument(updated, req.collaborationUser!.id),
+      git: gitResult,
+    });
+  }));
+
+  router.post("/admin/documents/:documentId/reject", requireAdmin, asyncHandler(async (req, res) => {
+    const id = documentIdSchema.safeParse(req.params.documentId);
+    if (!id.success) {
+      res.status(404).json({ error: "This document room does not exist." });
+      return;
+    }
+    const document = await getDocumentById(id.data);
+    if (!document) {
+      res.status(404).json({ error: "This document does not exist." });
+      return;
+    }
+
+    const db = await getDb();
+    if (!db) throw new RepositoryError("PostgreSQL is not configured for collaborative documents.", 503);
+    const [updated] = await db
+      .update(documents)
+      .set({
+        status: "rejected",
+        reviewedBy: req.collaborationUser!.id,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(documents.documentId, document.documentId))
+      .returning();
+
+    res.json({
+      success: true,
+      document: toPublicDocument(updated, req.collaborationUser!.id),
+    });
   }));
 
   router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

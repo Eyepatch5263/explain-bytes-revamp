@@ -6,13 +6,45 @@ import { HocuspocusProvider } from "@hocuspocus/provider";
 import { Collaboration } from "@tiptap/extension-collaboration";
 import { CollaborationCaret } from "@tiptap/extension-collaboration-caret";
 import { Markdown } from "@tiptap/markdown";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableCell } from "@tiptap/extension-table-cell";
 import { useEditor, EditorContent, type Editor as TiptapEditor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, Bold, Check, Code2, Copy, GitFork, Heading2, Italic, LoaderCircle, Share2, Save, ShieldCheck, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Bold,
+  Check,
+  Code,
+  Code2,
+  Columns,
+  Copy,
+  GitFork,
+  Heading1,
+  Heading2,
+  Heading3,
+  Italic,
+  List,
+  ListOrdered,
+  LoaderCircle,
+  Minus,
+  Plus,
+  Quote,
+  Rows,
+  Save,
+  Share2,
+  ShieldCheck,
+  Strikethrough,
+  Table as TableIcon,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
-import type { CollaborativeDocument } from "@/lib/collaborative-api";
+import { getDocumentStatusBadge, type CollaborativeDocument } from "@/lib/collaborative-api";
+import { confirmToast } from "@/lib/confirm-toast";
 
 const cursorColors = ["#e66b5b", "#4072f6", "#4c8b72", "#b6783c", "#8c63b8"];
 type EditorMode = "source" | "rich";
@@ -28,6 +60,7 @@ type Props = {
   onDocumentChange: (document: CollaborativeDocument) => void;
   onFork: (document: CollaborativeDocument) => void;
   onShare: () => void;
+  onDelete?: () => void;
 };
 
 function userColor(id: string) {
@@ -72,14 +105,30 @@ function TipTapSurface({
   currentUser: Props["currentUser"];
 }) {
   const modeRef = useRef(mode);
-  const applyingSource = useRef(false);
   const source = ydoc.getText("markdown");
   modeRef.current = mode;
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initializedRef = useRef(false);
+  const prevModeRef = useRef(mode);
+
+  const onUpdate = useCallback(({ editor: currentEditor }: { editor: TiptapEditor }) => {
+    if (modeRef.current !== "rich") return;
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      if (!currentEditor.isDestroyed) {
+        setSharedText(source, currentEditor.getMarkdown());
+      }
+    }, 400);
+  }, [source]);
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ undoRedo: false }),
       Markdown.configure({ markedOptions: { gfm: true } }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Collaboration.configure({ document: ydoc, field: "richText" }),
       CollaborationCaret.configure({
         provider,
@@ -101,47 +150,246 @@ function TipTapSurface({
     ],
     editable: mode === "rich" && !isPublished,
     editorProps: { attributes: { class: "collab-tiptap-content", "aria-label": "Collaborative rich text editor" } },
-    onUpdate: ({ editor: currentEditor }) => {
-      if (modeRef.current !== "rich" || applyingSource.current) return;
-      setSharedText(source, currentEditor.getMarkdown());
-    },
-  }, [ydoc, provider]);
+    onUpdate,
+  }, [ydoc, provider, onUpdate]);
 
   useEffect(() => {
     if (!editor) return;
     editor.setEditable(mode === "rich" && !isPublished);
   }, [editor, isPublished, mode]);
 
+  // Initialize content on first load if Y.XmlFragment is empty but markdown exists
+  useEffect(() => {
+    if (!editor || !synced || initializedRef.current) return;
+    const fragment = ydoc.getXmlFragment("richText");
+    if (fragment.length === 0 && source.length > 0) {
+      editor.commands.setContent(source.toString(), { contentType: "markdown", emitUpdate: false });
+    }
+    initializedRef.current = true;
+  }, [editor, synced, source, ydoc]);
+
+  // When switching modes from Monaco to TipTap, sync any changes made in Monaco
   useEffect(() => {
     if (!editor || !synced) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const applySource = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        const markdown = source.toString();
-        if (markdown === editor.getMarkdown()) return;
-        applyingSource.current = true;
+    if (prevModeRef.current !== "rich" && mode === "rich") {
+      const markdown = source.toString();
+      if (markdown && markdown !== editor.getMarkdown()) {
         editor.commands.setContent(markdown, { contentType: "markdown", emitUpdate: false });
-        setTimeout(() => { applyingSource.current = false; }, 0);
-      }, 120);
-    };
-    source.observe(applySource);
-    applySource();
+      }
+    }
+    prevModeRef.current = mode;
+  }, [mode, editor, source, synced]);
+
+  // Flush pending markdown sync on unmount
+  useEffect(() => {
     return () => {
-      if (timer) clearTimeout(timer);
-      source.unobserve(applySource);
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+        if (editor && !editor.isDestroyed) {
+          setSharedText(source, editor.getMarkdown());
+        }
+      }
     };
-  }, [editor, source, synced]);
+  }, [editor, source]);
 
   if (!editor) return <div className="collab-editor-loading"><LoaderCircle className="animate-spin" size={17} /> Warming the rich-text editor…</div>;
+
   return (
     <div className="collab-rich-surface">
       <div className="collab-format-toolbar" role="toolbar" aria-label="Text formatting">
-        <button type="button" aria-label="Bold" title="Bold" disabled={isPublished} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={15} /></button>
-        <button type="button" aria-label="Italic" title="Italic" disabled={isPublished} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={15} /></button>
-        <button type="button" aria-label="Heading" title="Heading" disabled={isPublished} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 size={16} /></button>
-        <button type="button" aria-label="Code block" title="Code block" disabled={isPublished} onClick={() => editor.chain().focus().toggleCodeBlock().run()}><Code2 size={15} /></button>
-        <span className="collab-toolbar-caption">TIPTAP · YJS COLLABORATION</span>
+        <div className="collab-toolbar-group" aria-label="Headings">
+          <button
+            type="button"
+            className={editor.isActive("heading", { level: 1 }) ? "is-active" : ""}
+            aria-label="Heading 1"
+            title="Heading 1"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          >
+            <Heading1 size={15} />
+          </button>
+          <button
+            type="button"
+            className={editor.isActive("heading", { level: 2 }) ? "is-active" : ""}
+            aria-label="Heading 2"
+            title="Heading 2"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          >
+            <Heading2 size={15} />
+          </button>
+          <button
+            type="button"
+            className={editor.isActive("heading", { level: 3 }) ? "is-active" : ""}
+            aria-label="Heading 3"
+            title="Heading 3"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          >
+            <Heading3 size={15} />
+          </button>
+        </div>
+
+        <span className="collab-toolbar-divider" />
+
+        <div className="collab-toolbar-group" aria-label="Inline Styles">
+          <button
+            type="button"
+            className={editor.isActive("bold") ? "is-active" : ""}
+            aria-label="Bold"
+            title="Bold (Ctrl+B)"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+          >
+            <Bold size={15} />
+          </button>
+          <button
+            type="button"
+            className={editor.isActive("italic") ? "is-active" : ""}
+            aria-label="Italic"
+            title="Italic (Ctrl+I)"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+          >
+            <Italic size={15} />
+          </button>
+          <button
+            type="button"
+            className={editor.isActive("strike") ? "is-active" : ""}
+            aria-label="Strikethrough"
+            title="Strikethrough"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().toggleStrike().run()}
+          >
+            <Strikethrough size={15} />
+          </button>
+          <button
+            type="button"
+            className={editor.isActive("code") ? "is-active" : ""}
+            aria-label="Inline Code"
+            title="Inline Code"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().toggleCode().run()}
+          >
+            <Code size={15} />
+          </button>
+        </div>
+
+        <span className="collab-toolbar-divider" />
+
+        <div className="collab-toolbar-group" aria-label="Lists and Quotes">
+          <button
+            type="button"
+            className={editor.isActive("bulletList") ? "is-active" : ""}
+            aria-label="Bullet list"
+            title="Bullet list"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+          >
+            <List size={15} />
+          </button>
+          <button
+            type="button"
+            className={editor.isActive("orderedList") ? "is-active" : ""}
+            aria-label="Numbered list"
+            title="Numbered list"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          >
+            <ListOrdered size={15} />
+          </button>
+          <button
+            type="button"
+            className={editor.isActive("blockquote") ? "is-active" : ""}
+            aria-label="Quote"
+            title="Blockquote"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          >
+            <Quote size={15} />
+          </button>
+        </div>
+
+        <span className="collab-toolbar-divider" />
+
+        <div className="collab-toolbar-group" aria-label="Blocks and Separators">
+          <button
+            type="button"
+            className={editor.isActive("codeBlock") ? "is-active" : ""}
+            aria-label="Code block"
+            title="Code block"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          >
+            <Code2 size={15} />
+          </button>
+          <button
+            type="button"
+            aria-label="Divider"
+            title="Horizontal divider"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().setHorizontalRule().run()}
+          >
+            <Minus size={15} />
+          </button>
+        </div>
+
+        <span className="collab-toolbar-divider" />
+
+        <div className="collab-toolbar-group" aria-label="Table">
+          <button
+            type="button"
+            className={editor.isActive("table") ? "is-active" : ""}
+            aria-label="Insert Table"
+            title="Insert table (3x3)"
+            disabled={isPublished}
+            onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+          >
+            <TableIcon size={15} />
+          </button>
+          {editor.isActive("table") && (
+            <>
+              <button
+                type="button"
+                aria-label="Add Row"
+                title="Add row below"
+                disabled={isPublished}
+                onClick={() => editor.chain().focus().addRowAfter().run()}
+              >
+                <Rows size={14} />
+              </button>
+              <button
+                type="button"
+                aria-label="Add Column"
+                title="Add column after"
+                disabled={isPublished}
+                onClick={() => editor.chain().focus().addColumnAfter().run()}
+              >
+                <Columns size={14} />
+              </button>
+              <button
+                type="button"
+                aria-label="Delete Row"
+                title="Delete current row"
+                disabled={isPublished}
+                onClick={() => editor.chain().focus().deleteRow().run()}
+              >
+                <Minus size={14} />
+              </button>
+              <button
+                type="button"
+                aria-label="Delete Table"
+                title="Delete table"
+                disabled={isPublished}
+                onClick={() => editor.chain().focus().deleteTable().run()}
+              >
+                <Trash2 size={14} />
+              </button>
+            </>
+          )}
+        </div>
+
+        <span className="collab-toolbar-caption">TIPTAP · YJS CRDT</span>
       </div>
       <EditorContent editor={editor} />
       {mode === "rich" && <div className="collab-rich-hint">The room uses one shared editor mode, so everyone can edit the same representation together.</div>}
@@ -207,6 +455,7 @@ export default function CollaborativeRoom({
   onDocumentChange,
   onFork,
   onShare,
+  onDelete,
 }: Props) {
   const [ydoc, setYdoc] = useState<Y.Doc | null>(null);
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
@@ -219,6 +468,7 @@ export default function CollaborativeRoom({
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [forking, setForking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let disposed = false;
@@ -344,6 +594,31 @@ export default function CollaborativeRoom({
     }
   };
 
+  const handleDelete = async () => {
+    if (!initialDocument.isOwner || deleting) return;
+    const confirmed = await confirmToast({
+      title: `Delete "${initialDocument.title}"?`,
+      description: "This manuscript and its room will be permanently removed. This action cannot be undone.",
+      confirmLabel: "Delete Document",
+      cancelLabel: "Cancel",
+      isDestructive: true,
+    });
+    if (!confirmed) return;
+    setDeleting(true);
+    try {
+      await request(`/documents/${initialDocument.id}`, { method: "DELETE" });
+      toast.success("Document deleted.");
+      if (onDelete) {
+        onDelete();
+      } else {
+        onBack();
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The document could not be deleted.");
+      setDeleting(false);
+    }
+  };
+
   const statusLabel = connectionError ? "Room access needs attention" : status === "connected" && synced ? "Live · Postgres autosave on" : status === "disconnected" ? "Connection closed" : "Joining room…";
   const uniqueParticipants = participants.length;
 
@@ -362,12 +637,35 @@ export default function CollaborativeRoom({
         <div>
           <p className="collab-eyebrow">{initialDocument.section.toUpperCase()} <span> / </span>{initialDocument.category.toUpperCase()}</p>
           <h1>{initialDocument.title}</h1>
-          <div className="collab-document-trail"><span>DOC {initialDocument.id.slice(0, 8).toUpperCase()}</span><span className={`collab-status ${initialDocument.status === "published" ? "is-published" : ""}`}>{initialDocument.status}</span>{initialDocument.forkedFromDocumentId && <span className="collab-fork-lineage"><GitFork size={12} /> Forked from {initialDocument.forkedFromDocumentId.slice(0, 8)}</span>}</div>
+          <div className="collab-document-trail">
+            <span>DOC {initialDocument.id.slice(0, 8).toUpperCase()}</span>
+            {(() => {
+              const badge = getDocumentStatusBadge(initialDocument.status);
+              return <span className={`collab-status ${badge.className}`}>{badge.label}</span>;
+            })()}
+            {initialDocument.forkedFromDocumentId && <span className="collab-fork-lineage"><GitFork size={12} /> Forked from {initialDocument.forkedFromDocumentId.slice(0, 8)}</span>}
+          </div>
         </div>
         <div className="collab-room-ownership">
           <div className="collab-presence" aria-label={`${uniqueParticipants} of 5 room members`}>{participants.map((person) => <span key={person.id} title={person.name} style={{ backgroundColor: person.color }}>{person.name.slice(0, 1).toUpperCase()}</span>)}{uniqueParticipants < 5 && <span className="collab-presence-empty">+</span>}<small>{uniqueParticipants}/5</small></div>
           <p>{initialDocument.isOwner ? <><ShieldCheck size={14} /> Your original · only you can publish</> : <><Users size={14} /> Shared draft · fork to publish your own</>}</p>
-          <div className="collab-owner-actions">{initialDocument.isOwner && initialDocument.status !== "published" && <button className="collab-button collab-button-coral" onClick={publish} disabled={publishing || !synced}>{publishing ? <LoaderCircle className="animate-spin" size={14} /> : <Check size={14} />} Publish original</button>}<button className="collab-button collab-button-outline" onClick={fork} disabled={forking || !synced}>{forking ? <LoaderCircle className="animate-spin" size={14} /> : <GitFork size={14} />} Fork document</button></div>
+          <div className="collab-owner-actions">
+            {initialDocument.isOwner && initialDocument.status !== "published" && (
+              <button className="collab-button collab-button-coral" onClick={publish} disabled={publishing || !synced}>
+                {publishing ? <LoaderCircle className="animate-spin" size={14} /> : <Check size={14} />} Publish original
+              </button>
+            )}
+            {initialDocument.isOwner && (
+              <button className="collab-button collab-button-outline collab-button-danger" onClick={handleDelete} disabled={deleting}>
+                {deleting ? <LoaderCircle className="animate-spin" size={14} /> : <Trash2 size={14} />} Delete document
+              </button>
+            )}
+            {!initialDocument.isOwner && (
+              <button className="collab-button collab-button-outline" onClick={fork} disabled={forking || !synced}>
+                {forking ? <LoaderCircle className="animate-spin" size={14} /> : <GitFork size={14} />} Fork document
+              </button>
+            )}
+          </div>
         </div>
       </section>
       {connectionError && <div className="collab-room-alert"><span>{connectionError}</span><span>{connectionError.toLowerCase().includes("full") ? "Ask someone to leave before joining; rooms are limited to five people." : "Refresh the room after checking your sign-in."}</span></div>}

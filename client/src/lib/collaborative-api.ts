@@ -1,3 +1,19 @@
+export function getDocumentStatusBadge(status?: string | null) {
+  switch (status?.toLowerCase()) {
+    case "published":
+      return { label: "Published", className: "is-published" };
+    case "approved":
+      return { label: "Approved", className: "is-approved" };
+    case "rejected":
+      return { label: "Rejected", className: "is-rejected" };
+    case "review":
+      return { label: "In Review", className: "is-review" };
+    case "draft":
+    default:
+      return { label: "Draft", className: "is-draft" };
+  }
+}
+
 export type CollaborativeDocument = {
   id: string;
   title: string;

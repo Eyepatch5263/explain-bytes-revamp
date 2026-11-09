@@ -2,11 +2,12 @@ import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme();
+  const { theme = "system", resolvedTheme } = useTheme();
+  const currentTheme = resolvedTheme === "dark" || theme === "dark" ? "dark" : "light";
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={currentTheme as ToasterProps["theme"]}
       className="toaster group"
       style={
         {

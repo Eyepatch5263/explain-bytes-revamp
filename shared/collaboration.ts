@@ -7,7 +7,6 @@ export const DOCUMENT_SECTIONS = [
   "web",
   "devops",
   "dbms",
-  "design",
 ] as const;
 
 export const MAX_ROOM_PARTICIPANTS = 5;
