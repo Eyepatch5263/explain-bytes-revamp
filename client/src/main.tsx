@@ -30,6 +30,7 @@ createRoot(document.getElementById("root")!).render(
         authorizationParams={{
           redirect_uri: typeof window !== "undefined" ? window.location.origin : undefined,
         }}
+        cacheLocation="localstorage"
         
       >
         <App />

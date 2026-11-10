@@ -7,6 +7,7 @@ import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { getChapterHeadings, getSystemDesignCategories, getSystemDesignDoc, prefetchChapter, simulationSlugs, systemDesignDocs } from "@/lib/systemDesignDocs";
 import "./systemDesignReaderWide.css";
 import { lazy } from "react";
+import { Link } from "wouter";
 
 type SystemDesignReaderProps = {
   slug?: string;
@@ -84,7 +85,7 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
         <section key={category} className="flashdocs-rail-group">
           <h2>{category}</h2>
           {docs.map((item) => (
-            <a
+            <Link
               key={item.slug}
               href={`/docs/system-design/${item.slug}`}
               className={item.slug === doc.slug && !isSimulation ? "is-active" : ""}
@@ -92,7 +93,7 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
               onClick={() => setSidebarOpen(false)}
             >
               <span>{String(item.order).padStart(2, "0")}</span>{item.title}
-            </a>
+            </Link>
           ))}
         </section>
       ))}
@@ -105,7 +106,7 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
         <a className="flashdocs-wordmark" href="/"><i /><i /><i /> Explain Bytes</a>
         <div className="flashdocs-reader-context"><BookOpen size={15} /> Flash docs <span>/</span> System Design</div>
         <div className="flashdocs-reader-actions">
-          <a href="/flashcards">Practice</a>
+          <Link href="/flashcards">Practice</Link>
           <AuthActions/>
           <button type="button" onClick={() => setSidebarOpen(true)}><Menu size={17} /> Chapters</button>
         </div>
@@ -119,14 +120,14 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
         </div>
 
         <article className="flashdocs-article" ref={articleRef}>
-          <a className="flashdocs-breadcrumb" href="/docs"><ArrowLeft size={15} /> Flash Docs / System Design</a>
+          <Link className="flashdocs-breadcrumb" href="/docs"><ArrowLeft size={15} /> Flash Docs / System Design</Link>
           {isSimulation ? (
             <>
               <header className="flashdocs-article-heading flashdocs-simulation-heading">
                 <p className="flashdocs-kicker">{doc.category.toUpperCase()} / INTERACTIVE SANDBOX</p>
                 <h1>{doc.title}<br /><em>in motion.</em></h1>
                 <p>Interact with the original Explain Bytes visual simulation, then return to the complete chapter when you are ready.</p>
-                <a className="flashdocs-outline-button" href={`/docs/system-design/${doc.slug}`}><ArrowLeft size={15} /> Back to chapter</a>
+                <Link className="flashdocs-outline-button" href={`/docs/system-design/${doc.slug}`}><ArrowLeft size={15} /> Back to chapter</Link>
               </header>
               <div className="flashdocs-simulation-shell">
                 <Simulation slug={doc.slug} /></div>
@@ -138,7 +139,7 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
                 <h1>{doc.title}</h1>
                 <p>{doc.description}</p>
                 <div className="flashdocs-chapter-tools">
-                  {simulationSlugs.has(doc.slug) && <a href={`/docs/system-design/${doc.slug}/simulation`}><Zap size={15} /> Open simulation <ExternalLink size={13} /></a>}
+                  {simulationSlugs.has(doc.slug) && <Link href={`/docs/system-design/${doc.slug}/simulation`}><Zap size={15} /> Open simulation <ExternalLink size={13} /></Link>}
                   <ChapterAudioPlayer slug={doc.slug} title={doc.title} />
                 </div>
                 <div className="flashdocs-reading-progress" aria-label={`${percent}% of this chapter read`}>
@@ -163,29 +164,29 @@ export default function SystemDesignReader({ slug = "introduction", view }: Syst
 
               <footer className="flashdocs-chapter-pagination">
                 {previous ? (
-                  <a
+                  <Link
                     href={`/docs/system-design/${previous.slug}`}
                     onMouseEnter={() => prefetchChapter(previous.slug)}
                   >
                     <span><ArrowLeft size={16} /> Previous chapter</span>
                     <b>{previous.title}</b>
-                  </a>
+                  </Link>
                 ) : <span />}
                 {next ? (
-                  <a
+                  <Link
                     href={`/docs/system-design/${next.slug}`}
                     onMouseEnter={() => prefetchChapter(next.slug)}
                   >
                     <span>Next chapter <ArrowRight size={16} /></span>
                     <b>{next.title}</b>
-                  </a>
+                  </Link>
                 ) : <span />}
               </footer>
             </>
           )}
         </article>
 
-        {!isSimulation && <aside className="flashdocs-toc"><p>ON THIS PAGE</p>{headings.map((heading) => <a key={`${heading.id}-${heading.title}`} className={`level-${heading.level}`} href={`#${heading.id}`}>{heading.title}</a>)}</aside>}
+        {!isSimulation && <aside className="flashdocs-toc"><p>ON THIS PAGE</p>{headings.map((heading) => <Link key={`${heading.id}-${heading.title}`} className={`level-${heading.level}`} href={`#${heading.id}`}>{heading.title}</Link>)}</aside>}
       </div>
     </main>
   );
